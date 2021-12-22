@@ -24,8 +24,7 @@ type Chat struct {
 
 // bank Model
 type Bank struct {
-	Id      string
-	Account string
+	Account int
 	Owner   string
 	Name    string
 	Balance int
