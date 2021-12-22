@@ -53,7 +53,7 @@ func main() {
 
 		for _, update := range updates {
 			if previousCommand != "" {
-				if previousCommand == "/createBank" {
+				if previousCommand == "/create_bank" {
 					bank := Bank{
 						Account: update.Message.Chat.ChatId,
 						Owner:   update.Message.Chat.Username,
@@ -75,9 +75,9 @@ func main() {
 					bank.createBank()
 				}
 
-				if update.Message.Text == "/createBank" {
+				if update.Message.Text == "/create_bank" {
 					sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку?")
-					previousCommand = "/createBank"
+					previousCommand = "/create_bank"
 				}
 			}
 
