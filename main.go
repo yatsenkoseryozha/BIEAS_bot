@@ -44,6 +44,7 @@ func main() {
 	botUri := botUrl + botToken
 
 	offset := 0
+	var previousCommand string
 	for {
 		updates, err := getUpdates(botUri, offset)
 		if err != nil {
@@ -51,15 +52,34 @@ func main() {
 		}
 
 		for _, update := range updates {
-			if update.Message.Text == "/start" {
-				bank := Bank{
-					Account: update.Message.Chat.ChatId,
-					Owner:   update.Message.Chat.Username,
-					Name:    "other",
-					Balance: 0,
+			if previousCommand != "" {
+				if previousCommand == "/createBank" {
+					bank := Bank{
+						Account: update.Message.Chat.ChatId,
+						Owner:   update.Message.Chat.Username,
+						Name:    update.Message.Text,
+						Balance: 0,
+					}
+					bank.createBank()
+					previousCommand = ""
 				}
-				bank.createBank()
+			} else {
+				if update.Message.Text == "/start" {
+					bank := Bank{
+						Account: update.Message.Chat.ChatId,
+						Owner:   update.Message.Chat.Username,
+						Name:    "other",
+						Balance: 0,
+					}
+					bank.createBank()
+				}
+
+				if update.Message.Text == "/createBank" {
+					sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку?")
+					previousCommand = "/createBank"
+				}
 			}
+
 			offset = update.UpdateId + 1
 		}
 	}
@@ -82,4 +102,14 @@ func getUpdates(botUri string, offset int) ([]Update, error) {
 	json.Unmarshal(body, &getUpdatesResp)
 
 	return getUpdatesResp.Updates, nil
+}
+
+func sendMessage(botUri string, chatId int, text string) error {
+	resp, err := http.Get(botUri + "/sendMessage" + "?chat_id=" + strconv.Itoa(chatId) + "&text=" + text)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return nil
 }
