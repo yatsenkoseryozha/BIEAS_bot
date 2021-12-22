@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -54,15 +55,37 @@ func main() {
 		for _, update := range updates {
 			if previousCommand != "" {
 				if previousCommand == "/create_bank" {
-					bank := Bank{
-						Account: update.Message.Chat.ChatId,
-						Owner:   update.Message.Chat.Username,
-						Name:    update.Message.Text,
-						Balance: 0,
+					nameIsValid := true
+
+					banks, err := collection.Find(ctx, bson.M{"account": update.Message.Chat.ChatId})
+					if err != nil {
+						log.Println(err)
 					}
-					bank.createBank()
-					previousCommand = ""
-					sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!")
+					defer banks.Close(ctx)
+
+					for banks.Next(ctx) {
+						var bank bson.M
+						if err = banks.Decode(&bank); err != nil {
+							log.Println(err)
+						}
+						if bank["name"] == update.Message.Text {
+							nameIsValid = false
+						}
+					}
+
+					if nameIsValid {
+						bank := Bank{
+							Account: update.Message.Chat.ChatId,
+							Owner:   update.Message.Chat.Username,
+							Name:    update.Message.Text,
+							Balance: 0,
+						}
+						bank.createBank()
+						previousCommand = ""
+						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!")
+					} else {
+						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое")
+					}
 				}
 			} else {
 				if update.Message.Text == "/start" {
