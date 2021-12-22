@@ -54,37 +54,42 @@ func main() {
 
 		for _, update := range updates {
 			if previousCommand != "" {
-				if previousCommand == "/create_bank" {
-					nameIsValid := true
+				if update.Message.Text == "/cancel" {
+					previousCommand = ""
+					sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?")
+				} else {
+					if previousCommand == "/create_bank" {
+						nameIsValid := true
 
-					banks, err := collection.Find(ctx, bson.M{"account": update.Message.Chat.ChatId})
-					if err != nil {
-						log.Println(err)
-					}
-					defer banks.Close(ctx)
-
-					for banks.Next(ctx) {
-						var bank bson.M
-						if err = banks.Decode(&bank); err != nil {
+						banks, err := collection.Find(ctx, bson.M{"account": update.Message.Chat.ChatId})
+						if err != nil {
 							log.Println(err)
 						}
-						if bank["name"] == update.Message.Text {
-							nameIsValid = false
-						}
-					}
+						defer banks.Close(ctx)
 
-					if nameIsValid {
-						bank := Bank{
-							Account: update.Message.Chat.ChatId,
-							Owner:   update.Message.Chat.Username,
-							Name:    update.Message.Text,
-							Balance: 0,
+						for banks.Next(ctx) {
+							var bank bson.M
+							if err = banks.Decode(&bank); err != nil {
+								log.Println(err)
+							}
+							if bank["name"] == update.Message.Text {
+								nameIsValid = false
+							}
 						}
-						bank.createBank()
-						previousCommand = ""
-						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!")
-					} else {
-						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое")
+
+						if nameIsValid {
+							bank := Bank{
+								Account: update.Message.Chat.ChatId,
+								Owner:   update.Message.Chat.Username,
+								Name:    update.Message.Text,
+								Balance: 0,
+							}
+							bank.createBank()
+							previousCommand = ""
+							sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!")
+						} else {
+							sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое")
+						}
 					}
 				}
 			} else {
@@ -99,7 +104,7 @@ func main() {
 				}
 
 				if update.Message.Text == "/create_bank" {
-					sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку?")
+					sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку? Если передумал, напиши /cancel")
 					previousCommand = "/create_bank"
 				}
 			}
