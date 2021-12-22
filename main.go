@@ -62,6 +62,7 @@ func main() {
 					}
 					bank.createBank()
 					previousCommand = ""
+					sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!")
 				}
 			} else {
 				if update.Message.Text == "/start" {
