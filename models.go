@@ -30,3 +30,8 @@ type Bank struct {
 	Name    string
 	Balance int
 }
+
+func (bank *Bank) createBank() error {
+	_, err := collection.InsertOne(ctx, bank)
+	return err
+}
