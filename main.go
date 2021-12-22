@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -10,13 +11,32 @@ import (
 	"strconv"
 
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
+
+var collection *mongo.Collection
+var ctx = context.TODO()
 
 func init() {
 	err := godotenv.Load()
 	if err != nil {
 		log.Print("No .env file found")
 	}
+
+	dbUri, _ := os.LookupEnv("DB_URI")
+	clientOptions := options.Client().ApplyURI(dbUri)
+	client, err := mongo.Connect(ctx, clientOptions)
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = client.Ping(ctx, nil)
+	if err != nil {
+		log.Println(err)
+	}
+
+	collection = client.Database("general").Collection("Banks")
 }
 
 func main() {
@@ -50,9 +70,9 @@ func getUpdates(botUri string, offset int) ([]Update, error) {
 		return nil, err
 	}
 
-	var updates GetUpdatesResp
+	var getUpdatesResp *GetUpdatesResp
 
-	json.Unmarshal(body, &updates)
+	json.Unmarshal(body, &getUpdatesResp)
 
-	return updates.Updates, nil
+	return getUpdatesResp.Updates, nil
 }
