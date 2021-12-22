@@ -21,3 +21,12 @@ type Chat struct {
 	ChatId   int    `json:"id"`
 	Username string `json:"username"`
 }
+
+// bank Model
+type Bank struct {
+	Id      string
+	Account string
+	Owner   string
+	Name    string
+	Balance int
+}
