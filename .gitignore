@@ -3,3 +3,6 @@
 
 # executable
 BIEAS_bot*
+
+# other
+.DS_store
