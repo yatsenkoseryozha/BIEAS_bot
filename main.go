@@ -53,8 +53,7 @@ func main() {
 		for _, update := range updates {
 			if update.Message.Text == "/start" {
 				bank := Bank{
-					Id:      strconv.Itoa(update.Message.Chat.ChatId) + "-B-" + "0",
-					Account: strconv.Itoa(update.Message.Chat.ChatId),
+					Account: update.Message.Chat.ChatId,
 					Owner:   update.Message.Chat.Username,
 					Name:    "other",
 					Balance: 0,
