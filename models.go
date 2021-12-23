@@ -49,7 +49,7 @@ type ReplyKeyboard struct {
 	RemoveKeyboard bool       `json:"remove_keyboard"`
 }
 
-func (rk *ReplyKeyboard) createBanksKeyboard(chatId int) error {
+func (rk *ReplyKeyboard) createBanksKeyboard(chatId int, command string) error {
 	var replyKeyboardRow []string
 
 	banks, err := collection.Find(ctx, bson.M{"account": chatId})
@@ -64,7 +64,11 @@ func (rk *ReplyKeyboard) createBanksKeyboard(chatId int) error {
 			log.Println(err)
 		}
 
-		if bank["name"] != "other" {
+		if command == "/destroy_bank" {
+			if bank["name"] != "other" {
+				replyKeyboardRow = append(replyKeyboardRow, bank["name"].(string))
+			}
+		} else {
 			replyKeyboardRow = append(replyKeyboardRow, bank["name"].(string))
 		}
 
