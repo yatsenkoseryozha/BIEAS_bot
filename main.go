@@ -53,7 +53,7 @@ func main() {
 		}
 
 		for _, update := range updates {
-			if previousCommand != "" {
+			if previousCommand != "" && (string(update.Message.Text[0]) != "/" || update.Message.Text == "/cancel") {
 				if update.Message.Text == "/cancel" {
 					previousCommand = ""
 					sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?", ReplyKeyboard{})
