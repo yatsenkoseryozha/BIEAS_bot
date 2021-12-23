@@ -21,19 +21,22 @@ var ctx = context.TODO()
 func init() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Print("No .env file found")
+		log.Fatal("No .env file found")
+		// MAKE PANIC HERE
 	}
 
 	dbUri, _ := os.LookupEnv("DB_URI")
 	clientOptions := options.Client().ApplyURI(dbUri)
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
+		// MAKE PANIC HERE
 	}
 
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		log.Println(err)
+		log.Fatal(err)
+		// MAKE PANIC HERE
 	}
 
 	collection = client.Database("general").Collection("Banks")
@@ -44,12 +47,20 @@ func main() {
 	botToken, _ := os.LookupEnv("BOT_TOKEN")
 	botUri := botUrl + botToken
 
-	offset := 0
+	var replyKeyboard = ReplyKeyboard{
+		Keyboard:       [][]string{},
+		Resize:         true,
+		OneTime:        true,
+		RemoveKeyboard: true,
+	}
 	var previousCommand string
+
+	offset := 0
 	for {
 		updates, err := getUpdates(botUri, offset)
 		if err != nil {
-			log.Println(err)
+			log.Fatal(err)
+			// MAKE PANIC HERE
 		}
 
 		for _, update := range updates {
@@ -59,39 +70,54 @@ func main() {
 
 					banks, err := collection.Find(ctx, bson.M{"account": update.Message.Chat.ChatId})
 					if err != nil {
-						log.Println(err)
+						log.Fatal(err)
+						sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+					} else {
+						for banks.Next(ctx) {
+							var bank bson.M
+							if err = banks.Decode(&bank); err != nil {
+								log.Fatal(err)
+								// MAKE PANIC HERE
+							}
+							if bank["name"] == update.Message.Text {
+								nameIsValid = false
+							}
+						}
+
+						if nameIsValid {
+							bank := Bank{
+								Account: update.Message.Chat.ChatId,
+								Owner:   update.Message.Chat.Username,
+								Name:    update.Message.Text,
+								Balance: 0,
+							}
+							err = bank.createBank()
+							if err != nil {
+								log.Fatal(err)
+								sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+							} else {
+								previousCommand = ""
+								sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!", &replyKeyboard)
+							}
+						} else {
+							sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое", &replyKeyboard)
+						}
 					}
 					defer banks.Close(ctx)
-
-					for banks.Next(ctx) {
-						var bank bson.M
-						if err = banks.Decode(&bank); err != nil {
-							log.Println(err)
-						}
-						if bank["name"] == update.Message.Text {
-							nameIsValid = false
-						}
-					}
-
-					if nameIsValid {
-						bank := Bank{
-							Account: update.Message.Chat.ChatId,
-							Owner:   update.Message.Chat.Username,
-							Name:    update.Message.Text,
-							Balance: 0,
-						}
-						bank.createBank()
-						previousCommand = ""
-						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!", ReplyKeyboard{Keyboard: [][]string{}})
-					} else {
-						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое", ReplyKeyboard{Keyboard: [][]string{}})
-					}
 				}
 
 				if previousCommand == "/destroy_bank" {
-					collection.DeleteOne(ctx, bson.M{"name": update.Message.Text})
+					replyKeyboard.destroyBanksKeyboard()
+
 					previousCommand = ""
-					sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно удалена!", ReplyKeyboard{Keyboard: [][]string{}})
+
+					_, err = collection.DeleteOne(ctx, bson.M{"name": update.Message.Text})
+					if err != nil {
+						log.Fatal(err)
+						sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+					} else {
+						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно удалена!", &replyKeyboard)
+					}
 				}
 			} else {
 				if update.Message.Text == "/start" {
@@ -101,58 +127,39 @@ func main() {
 						Name:    "other",
 						Balance: 0,
 					}
-					bank.createBank()
+					err = bank.createBank()
+					if err != nil {
+						log.Fatal(err)
+						sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+					}
 				}
 
 				if update.Message.Text == "/cancel" {
+					replyKeyboard.destroyBanksKeyboard()
+
 					previousCommand = ""
-					sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?", ReplyKeyboard{Keyboard: [][]string{}})
+					sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?", &replyKeyboard)
 				}
 
 				if update.Message.Text == "/create_bank" {
-					sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку? Если передумал, напиши /cancel", ReplyKeyboard{Keyboard: [][]string{}})
+					replyKeyboard.destroyBanksKeyboard()
+
 					previousCommand = "/create_bank"
+					sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку? Если передумал, напиши /cancel", &replyKeyboard)
 				}
 
 				if update.Message.Text == "/destroy_bank" {
-					banks, err := collection.Find(ctx, bson.M{"account": update.Message.Chat.ChatId})
+					err = replyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId)
 					if err != nil {
-						log.Println(err)
-					}
-					defer banks.Close(ctx)
-
-					replyKeyboard := ReplyKeyboard{
-						Keyboard: [][]string{},
-						Resize:   true,
-						OneTime:  true,
-					}
-					var replyKeyboardRow []string
-
-					for banks.Next(ctx) {
-						var bank bson.M
-						if err = banks.Decode(&bank); err != nil {
-							log.Println(err)
-						}
-
-						if bank["name"] != "other" {
-							replyKeyboardRow = append(replyKeyboardRow, bank["name"].(string))
-						}
-
-						if len(replyKeyboardRow) >= 3 {
-							replyKeyboard.Keyboard = append(replyKeyboard.Keyboard, replyKeyboardRow)
-							replyKeyboardRow = []string{}
-						}
-					}
-
-					if len(replyKeyboardRow) > 0 {
-						replyKeyboard.Keyboard = append(replyKeyboard.Keyboard, replyKeyboardRow)
-					}
-
-					if len(replyKeyboard.Keyboard) > 0 {
-						sendMessage(botUri, update.Message.Chat.ChatId, "Какую копилку ты хочешь удалить? Если передумал, напиши /cancel", replyKeyboard)
-						previousCommand = "/destroy_bank"
+						log.Fatal(err)
+						sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
 					} else {
-						sendMessage(botUri, update.Message.Chat.ChatId, "Нет копилок, которые ты мог бы удалить", ReplyKeyboard{Keyboard: [][]string{}})
+						if len(replyKeyboard.Keyboard) > 0 {
+							previousCommand = "/destroy_bank"
+							sendMessage(botUri, update.Message.Chat.ChatId, "Какую копилку ты хочешь удалить? Если передумал, напиши /cancel", &replyKeyboard)
+						} else {
+							sendMessage(botUri, update.Message.Chat.ChatId, "Нет копилок, которые ты мог бы удалить", &replyKeyboard)
+						}
 					}
 				}
 			}
@@ -181,16 +188,12 @@ func getUpdates(botUri string, offset int) ([]Update, error) {
 	return getUpdatesResp.Updates, nil
 }
 
-func sendMessage(botUri string, chatId int, text string, keyboard ReplyKeyboard) error {
+func sendMessage(botUri string, chatId int, text string, keyboard *ReplyKeyboard) error {
 	options := "?chat_id=" + strconv.Itoa(chatId) + "&text=" + text
-
-	if len(keyboard.Keyboard) == 0 {
-		keyboard.RemoveKeyboard = true
-	}
 
 	keyboardJSON, err := json.Marshal(keyboard)
 	if err != nil {
-		log.Println(err)
+		return err
 	}
 
 	options += "&reply_markup=" + string(keyboardJSON)
