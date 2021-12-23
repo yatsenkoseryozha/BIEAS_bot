@@ -34,3 +34,10 @@ func (bank *Bank) createBank() error {
 	_, err := collection.InsertOne(ctx, bank)
 	return err
 }
+
+// keyboard Models
+type ReplyKeyboard struct {
+	Keyboard [][]string `json:"keyboard"`
+	Resize   bool       `json:"resize_keyboard"`
+	OneTime  bool       `json:"one_time_keyboard"`
+}
