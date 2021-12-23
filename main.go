@@ -199,6 +199,29 @@ func main() {
 						}
 					}
 				}
+
+				if previousCommand == "/get_balance" {
+					replyKeyboard.destroyBanksKeyboard()
+
+					previousCommand = ""
+
+					result := collection.FindOne(
+						ctx,
+						bson.M{
+							"account": update.Message.Chat.ChatId,
+							"name":    update.Message.Text,
+						},
+					)
+					err = result.Decode(&currentBank)
+					if err != nil {
+						log.Println(err)
+						sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+					} else {
+						currentBalance := strconv.Itoa(int(currentBank["balance"].(int32)))
+
+						sendMessage(botUri, update.Message.Chat.ChatId, "Баланс копилки "+currentBank["name"].(string)+" составляет "+currentBalance+" руб.", &replyKeyboard)
+					}
+				}
 			} else {
 				if update.Message.Text == "/start" {
 					bank := Bank{
@@ -256,6 +279,17 @@ func main() {
 							previousCommand = "/expense-to"
 							sendMessage(botUri, update.Message.Chat.ChatId, "Какую копилку ты хочешь опустошить? Если передумал, напиши /cancel", &replyKeyboard)
 						}
+					}
+				}
+
+				if update.Message.Text == "/get_balance" {
+					err = replyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, "/get_balance")
+					if err != nil {
+						log.Println(err)
+						sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+					} else {
+						previousCommand = "/get_balance"
+						sendMessage(botUri, update.Message.Chat.ChatId, "Баланс какой копилки ты хочешь узнать? Если передумал, напиши /cancel", &replyKeyboard)
 					}
 				}
 			}
