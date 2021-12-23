@@ -53,50 +53,45 @@ func main() {
 		}
 
 		for _, update := range updates {
-			if previousCommand != "" && (string(update.Message.Text[0]) != "/" || update.Message.Text == "/cancel") {
-				if update.Message.Text == "/cancel" {
-					previousCommand = ""
-					sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?", ReplyKeyboard{})
-				} else {
-					if previousCommand == "/create_bank" {
-						nameIsValid := true
+			if previousCommand != "" && string(update.Message.Text[0]) != "/" {
+				if previousCommand == "/create_bank" {
+					nameIsValid := true
 
-						banks, err := collection.Find(ctx, bson.M{"account": update.Message.Chat.ChatId})
-						if err != nil {
+					banks, err := collection.Find(ctx, bson.M{"account": update.Message.Chat.ChatId})
+					if err != nil {
+						log.Println(err)
+					}
+					defer banks.Close(ctx)
+
+					for banks.Next(ctx) {
+						var bank bson.M
+						if err = banks.Decode(&bank); err != nil {
 							log.Println(err)
 						}
-						defer banks.Close(ctx)
-
-						for banks.Next(ctx) {
-							var bank bson.M
-							if err = banks.Decode(&bank); err != nil {
-								log.Println(err)
-							}
-							if bank["name"] == update.Message.Text {
-								nameIsValid = false
-							}
-						}
-
-						if nameIsValid {
-							bank := Bank{
-								Account: update.Message.Chat.ChatId,
-								Owner:   update.Message.Chat.Username,
-								Name:    update.Message.Text,
-								Balance: 0,
-							}
-							bank.createBank()
-							previousCommand = ""
-							sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!", ReplyKeyboard{})
-						} else {
-							sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое", ReplyKeyboard{})
+						if bank["name"] == update.Message.Text {
+							nameIsValid = false
 						}
 					}
 
-					if previousCommand == "/destroy_bank" {
-						collection.DeleteOne(ctx, bson.M{"name": update.Message.Text})
+					if nameIsValid {
+						bank := Bank{
+							Account: update.Message.Chat.ChatId,
+							Owner:   update.Message.Chat.Username,
+							Name:    update.Message.Text,
+							Balance: 0,
+						}
+						bank.createBank()
 						previousCommand = ""
-						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно удалена!", ReplyKeyboard{})
+						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!", ReplyKeyboard{})
+					} else {
+						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое", ReplyKeyboard{})
 					}
+				}
+
+				if previousCommand == "/destroy_bank" {
+					collection.DeleteOne(ctx, bson.M{"name": update.Message.Text})
+					previousCommand = ""
+					sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно удалена!", ReplyKeyboard{})
 				}
 			} else {
 				if update.Message.Text == "/start" {
@@ -107,6 +102,11 @@ func main() {
 						Balance: 0,
 					}
 					bank.createBank()
+				}
+
+				if update.Message.Text == "/cancel" {
+					previousCommand = ""
+					sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?", ReplyKeyboard{})
 				}
 
 				if update.Message.Text == "/create_bank" {
