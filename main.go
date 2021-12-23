@@ -82,16 +82,16 @@ func main() {
 						}
 						bank.createBank()
 						previousCommand = ""
-						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!", ReplyKeyboard{})
+						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!", ReplyKeyboard{Keyboard: [][]string{}})
 					} else {
-						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое", ReplyKeyboard{})
+						sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое", ReplyKeyboard{Keyboard: [][]string{}})
 					}
 				}
 
 				if previousCommand == "/destroy_bank" {
 					collection.DeleteOne(ctx, bson.M{"name": update.Message.Text})
 					previousCommand = ""
-					sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно удалена!", ReplyKeyboard{})
+					sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно удалена!", ReplyKeyboard{Keyboard: [][]string{}})
 				}
 			} else {
 				if update.Message.Text == "/start" {
@@ -106,11 +106,11 @@ func main() {
 
 				if update.Message.Text == "/cancel" {
 					previousCommand = ""
-					sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?", ReplyKeyboard{})
+					sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?", ReplyKeyboard{Keyboard: [][]string{}})
 				}
 
 				if update.Message.Text == "/create_bank" {
-					sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку? Если передумал, напиши /cancel", ReplyKeyboard{})
+					sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку? Если передумал, напиши /cancel", ReplyKeyboard{Keyboard: [][]string{}})
 					previousCommand = "/create_bank"
 				}
 
@@ -152,7 +152,7 @@ func main() {
 						sendMessage(botUri, update.Message.Chat.ChatId, "Какую копилку ты хочешь удалить? Если передумал, напиши /cancel", replyKeyboard)
 						previousCommand = "/destroy_bank"
 					} else {
-						sendMessage(botUri, update.Message.Chat.ChatId, "Нет копилок, которые ты мог бы удалить", ReplyKeyboard{})
+						sendMessage(botUri, update.Message.Chat.ChatId, "Нет копилок, которые ты мог бы удалить", ReplyKeyboard{Keyboard: [][]string{}})
 					}
 				}
 			}
@@ -184,13 +184,16 @@ func getUpdates(botUri string, offset int) ([]Update, error) {
 func sendMessage(botUri string, chatId int, text string, keyboard ReplyKeyboard) error {
 	options := "?chat_id=" + strconv.Itoa(chatId) + "&text=" + text
 
-	if len(keyboard.Keyboard) > 0 {
-		keyboardJSON, err := json.Marshal(keyboard)
-		if err != nil {
-			log.Println(err)
-		}
-		options += "&reply_markup=" + string(keyboardJSON)
+	if len(keyboard.Keyboard) == 0 {
+		keyboard.RemoveKeyboard = true
 	}
+
+	keyboardJSON, err := json.Marshal(keyboard)
+	if err != nil {
+		log.Println(err)
+	}
+
+	options += "&reply_markup=" + string(keyboardJSON)
 
 	resp, err := http.Get(botUri + "/sendMessage" + options)
 	if err != nil {
