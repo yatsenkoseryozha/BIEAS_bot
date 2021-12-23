@@ -124,7 +124,7 @@ func main() {
 					}
 				}
 
-				if previousCommand == "/income-to" {
+				if previousCommand == "/income-to" || previousCommand == "/expense-to" {
 					result := collection.FindOne(
 						ctx, bson.M{
 							"account": update.Message.Chat.ChatId,
@@ -137,29 +137,51 @@ func main() {
 					} else {
 						replyKeyboard.destroyBanksKeyboard()
 
-						previousCommand = "/income-count"
-						sendMessage(botUri, update.Message.Chat.ChatId, "На какую сумму ты хочешь пополнить копилку "+currentBank["name"].(string), &replyKeyboard)
+						if previousCommand == "/income-to" {
+							previousCommand = "/income-count"
+							sendMessage(botUri, update.Message.Chat.ChatId, "На какую сумму ты хочешь пополнить копилку "+currentBank["name"].(string)+"?", &replyKeyboard)
+						} else if previousCommand == "/expense-to" {
+							previousCommand = "/expense-count"
+							sendMessage(botUri, update.Message.Chat.ChatId, "На какую сумму ты хочешь опустошить копилку "+currentBank["name"].(string)+"?", &replyKeyboard)
+						}
 					}
-				} else if previousCommand == "/income-count" {
+				} else if previousCommand == "/income-count" || previousCommand == "/expense-count" {
 					incomeCount, err := strconv.Atoi(update.Message.Text)
 					if err != nil {
 						log.Println(err)
 						sendMessage(botUri, update.Message.Chat.ChatId, "Некорректное значение. Попробуй снова", &replyKeyboard)
 					} else {
 						after := options.After
-						result := collection.FindOneAndUpdate(
-							ctx,
-							bson.M{
-								"account": update.Message.Chat.ChatId,
-								"name":    currentBank["name"].(string),
-							},
-							bson.M{
-								"$set": bson.M{"balance": currentBank["balance"].(int32) + int32(incomeCount)},
-							},
-							&options.FindOneAndUpdateOptions{
-								ReturnDocument: &after,
-							},
-						)
+						var result *mongo.SingleResult
+						if previousCommand == "/income-count" {
+							result = collection.FindOneAndUpdate(
+								ctx,
+								bson.M{
+									"account": update.Message.Chat.ChatId,
+									"name":    currentBank["name"].(string),
+								},
+								bson.M{
+									"$set": bson.M{"balance": currentBank["balance"].(int32) + int32(incomeCount)},
+								},
+								&options.FindOneAndUpdateOptions{
+									ReturnDocument: &after,
+								},
+							)
+						} else if previousCommand == "/expense-count" {
+							result = collection.FindOneAndUpdate(
+								ctx,
+								bson.M{
+									"account": update.Message.Chat.ChatId,
+									"name":    currentBank["name"].(string),
+								},
+								bson.M{
+									"$set": bson.M{"balance": currentBank["balance"].(int32) - int32(incomeCount)},
+								},
+								&options.FindOneAndUpdateOptions{
+									ReturnDocument: &after,
+								},
+							)
+						}
 						err = result.Decode(&currentBank)
 						if err != nil {
 							log.Println(err)
@@ -167,8 +189,13 @@ func main() {
 						} else {
 							currentBalance := strconv.Itoa(int(currentBank["balance"].(int32)))
 
-							previousCommand = ""
-							sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно пополнена! Текущий баланс: "+currentBalance+" руб.", &replyKeyboard)
+							if previousCommand == "/income-count" {
+								previousCommand = ""
+								sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно пополнена! Текущий баланс: "+currentBalance+" руб.", &replyKeyboard)
+							} else if previousCommand == "/expense-count" {
+								previousCommand = ""
+								sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно опустошена! Текущий баланс: "+currentBalance+" руб.", &replyKeyboard)
+							}
 						}
 					}
 				}
@@ -216,14 +243,19 @@ func main() {
 					}
 				}
 
-				if update.Message.Text == "/income" {
+				if update.Message.Text == "/income" || update.Message.Text == "/expense" {
 					err = replyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, "/income")
 					if err != nil {
 						log.Println(err)
 						sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
 					} else {
-						previousCommand = "/income-to"
-						sendMessage(botUri, update.Message.Chat.ChatId, "Какую копилку ты хочешь пополнить? Если передумал, напиши /cancel", &replyKeyboard)
+						if update.Message.Text == "/income" {
+							previousCommand = "/income-to"
+							sendMessage(botUri, update.Message.Chat.ChatId, "Какую копилку ты хочешь пополнить? Если передумал, напиши /cancel", &replyKeyboard)
+						} else if update.Message.Text == "/expense" {
+							previousCommand = "/expense-to"
+							sendMessage(botUri, update.Message.Chat.ChatId, "Какую копилку ты хочешь опустошить? Если передумал, напиши /cancel", &replyKeyboard)
+						}
 					}
 				}
 			}
