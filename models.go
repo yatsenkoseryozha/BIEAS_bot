@@ -1,5 +1,11 @@
 package main
 
+import (
+	"log"
+
+	"go.mongodb.org/mongo-driver/bson"
+)
+
 // getUpdates Models
 type GetUpdatesResp struct {
 	Ok      bool     `json:"ok"`
@@ -41,4 +47,43 @@ type ReplyKeyboard struct {
 	Resize         bool       `json:"resize_keyboard"`
 	OneTime        bool       `json:"one_time_keyboard"`
 	RemoveKeyboard bool       `json:"remove_keyboard"`
+}
+
+func (rk *ReplyKeyboard) createBanksKeyboard(chatId int) error {
+	var replyKeyboardRow []string
+
+	banks, err := collection.Find(ctx, bson.M{"account": chatId})
+	if err != nil {
+		return err
+	}
+	defer banks.Close(ctx)
+
+	for banks.Next(ctx) {
+		var bank bson.M
+		if err = banks.Decode(&bank); err != nil {
+			log.Println(err)
+		}
+
+		if bank["name"] != "other" {
+			replyKeyboardRow = append(replyKeyboardRow, bank["name"].(string))
+		}
+
+		if len(replyKeyboardRow) >= 3 {
+			rk.Keyboard = append(rk.Keyboard, replyKeyboardRow)
+			replyKeyboardRow = []string{}
+		}
+	}
+
+	if len(replyKeyboardRow) > 0 {
+		rk.Keyboard = append(rk.Keyboard, replyKeyboardRow)
+	}
+
+	rk.RemoveKeyboard = false
+
+	return nil
+}
+
+func (rk *ReplyKeyboard) destroyBanksKeyboard() {
+	rk.Keyboard = [][]string{}
+	rk.RemoveKeyboard = true
 }
