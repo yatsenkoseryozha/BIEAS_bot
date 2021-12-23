@@ -37,7 +37,8 @@ func (bank *Bank) createBank() error {
 
 // keyboard Models
 type ReplyKeyboard struct {
-	Keyboard [][]string `json:"keyboard"`
-	Resize   bool       `json:"resize_keyboard"`
-	OneTime  bool       `json:"one_time_keyboard"`
+	Keyboard       [][]string `json:"keyboard"`
+	Resize         bool       `json:"resize_keyboard"`
+	OneTime        bool       `json:"one_time_keyboard"`
+	RemoveKeyboard bool       `json:"remove_keyboard"`
 }
