@@ -168,29 +168,23 @@ type ReplyKeyboard struct {
 	RemoveKeyboard bool       `json:"remove_keyboard"`
 }
 
-func (rk *ReplyKeyboard) createBanksKeyboard(chat int, withDefault bool) error {
+func (rk *ReplyKeyboard) createKeyboard(chat int) error {
 	var keyboardRow []string
 
-	banks, err := store.DataBase.getDocuments("banks", chat)
+	documents, err := store.DataBase.getDocuments("banks", chat)
 	if err != nil {
 		return err
 	}
-	defer banks.Close(store.CTX)
+	defer documents.Close(store.CTX)
 
-	for banks.Next(store.CTX) {
-		var bank bson.M
-		err = banks.Decode(&bank)
+	for documents.Next(store.CTX) {
+		var document bson.M
+		err = documents.Decode(&document)
 		if err != nil {
 			return err
 		}
 
-		if withDefault == true {
-			keyboardRow = append(keyboardRow, bank["name"].(string))
-		} else {
-			if bank["name"] != "other" {
-				keyboardRow = append(keyboardRow, bank["name"].(string))
-			}
-		}
+		keyboardRow = append(keyboardRow, document["name"].(string))
 
 		if len(keyboardRow) >= 3 {
 			rk.Keyboard = append(rk.Keyboard, keyboardRow)
