@@ -35,9 +35,9 @@ func (db *DataBase) getDocuments(collection string, chat int) (*mongo.Cursor, er
 	return documents, nil
 }
 
-func (db *DataBase) getDocument(collection string, chat int, name string) (Bank, error) {
+func (db *DataBase) getBank(chat int, name string) (Bank, error) {
 	var bank Bank
-	db.Collections[collection].FindOne(store.CTX, bson.M{"account": chat, "name": name}).Decode(&bank)
+	db.Collections["banks"].FindOne(store.CTX, bson.M{"account": chat, "name": name}).Decode(&bank)
 	if bank.Name == "" {
 		return bank, errors.New("Копилка с таким названием не найдена. Попробуй снова")
 	}
@@ -76,22 +76,31 @@ func (bank *Bank) destroy() error {
 	return nil
 }
 
-func (bank *Bank) updateBalance(amount int, operation string) (Bank, error) {
-	updatedBank := bank
+func (bank *Bank) updateBalance(amount int, operation string) error {
+	var updatedBalance int
 	if operation == "income" {
-		updatedBank.Balance += amount
+		updatedBalance = bank.Balance + amount
 	} else if operation == "expense" {
-		updatedBank.Balance -= amount
+		updatedBalance = bank.Balance - amount
 	}
 
 	after := options.After
 	options := &options.FindOneAndUpdateOptions{ReturnDocument: &after}
-	err := store.DataBase.Collections["banks"].FindOneAndUpdate(store.CTX, bank, updatedBank, options).Decode(&updatedBank)
+	err := store.DataBase.Collections["banks"].FindOneAndUpdate(
+		store.CTX,
+		bank,
+		bson.M{
+			"$set": bson.M{
+				"balance": updatedBalance,
+			},
+		},
+		options,
+	).Decode(&bank)
 	if err != nil {
-		return Bank{}, err
+		return err
 	}
 
-	return *updatedBank, nil
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -168,10 +177,10 @@ type ReplyKeyboard struct {
 	RemoveKeyboard bool       `json:"remove_keyboard"`
 }
 
-func (rk *ReplyKeyboard) createKeyboard(chat int) error {
+func (rk *ReplyKeyboard) createKeyboard(collection string, chat int) error {
 	var keyboardRow []string
 
-	documents, err := store.DataBase.getDocuments("banks", chat)
+	documents, err := store.DataBase.getDocuments(collection, chat)
 	if err != nil {
 		return err
 	}

@@ -100,7 +100,7 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/destroy_bank" {
 				// --------------------------------------------------------------------------- handle /destroy_bank command
-				err = store.Bot.ReplyKeyboard.createKeyboard(update.Message.Chat.ChatId)
+				err = store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
 					log.Println(err)
 					if err = store.Bot.sendMessage(
@@ -135,7 +135,7 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/income" || update.Message.Text == "/expense" {
 				// ------------------------------------------------------------------- handle /income and /expense commands
-				err = store.Bot.ReplyKeyboard.createKeyboard(update.Message.Chat.ChatId)
+				err = store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
 					log.Println(err)
 					if err = store.Bot.sendMessage(
@@ -159,14 +159,14 @@ func main() {
 
 						var operation string
 						if update.Message.Text == "/income" {
-							operation = "увеличен"
+							operation = "увеличим"
 						} else if update.Message.Text == "/expense" {
-							operation = "уменьшен"
+							operation = "уменьшим"
 						}
 
 						if err = store.Bot.sendMessage(
 							update.Message.Chat.ChatId,
-							"Баланс какой копилки был "+operation+"? Напиши /cancel, если передумал",
+							"Баланс какой копилки "+operation+"? Напиши /cancel, если передумал",
 						); err != nil {
 							log.Fatal(err)
 						}
@@ -177,7 +177,7 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/get_balance" {
 				// ---------------------------------------------------------------------------- handle /get_balance command
-				err = store.Bot.ReplyKeyboard.createKeyboard(update.Message.Chat.ChatId)
+				err = store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
 					log.Println(err)
 					if err = store.Bot.sendMessage(
@@ -254,11 +254,11 @@ func main() {
 							// --------------------------------------------------------------------------------------------
 						} else if command.Command == "/destroy_bank" {
 							// ------------------------------------------ handle update in /destroy_bank command processing
-							bank, err := store.DataBase.getDocument("banks", update.Message.Chat.ChatId, update.Message.Text)
+							bank, err := store.DataBase.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
 								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
-									store.Bot.ReplyKeyboard.createKeyboard(update.Message.Chat.ChatId)
+									store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 
 									if err = store.Bot.sendMessage(
 										update.Message.Chat.ChatId,
@@ -302,11 +302,11 @@ func main() {
 							// --------------------------------------------------------------------------------------------
 						} else if command.Command == "/income" || command.Command == "/expense" {
 							// ------------------------------------ handle update in /income or /expense command processing
-							bank, err := store.DataBase.getDocument("banks", update.Message.Chat.ChatId, update.Message.Text)
+							bank, err := store.DataBase.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
 								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
-									store.Bot.ReplyKeyboard.createKeyboard(update.Message.Chat.ChatId)
+									store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 
 									if err = store.Bot.sendMessage(
 										update.Message.Chat.ChatId,
@@ -362,11 +362,10 @@ func main() {
 									log.Fatal(err)
 								}
 							} else {
-								var updatedBank Bank
 								if command.Command == "/set_income_amount" {
-									updatedBank, err = command.Extra.Bank.updateBalance(amount, "income")
+									err = command.Extra.Bank.updateBalance(amount, "income")
 								} else if command.Command == "/set_expense_amount" {
-									updatedBank, err = command.Extra.Bank.updateBalance(amount, "expense")
+									err = command.Extra.Bank.updateBalance(amount, "expense")
 								}
 
 								if err != nil {
@@ -380,7 +379,8 @@ func main() {
 								} else {
 									if err = store.Bot.sendMessage(
 										update.Message.Chat.ChatId,
-										"Баланс копилки был успешно изменен! Текущий баланс: "+string(rune(updatedBank.Balance))+" руб.",
+										"Баланс копилки был успешно изменен! Текущий баланс: "+
+											strconv.Itoa(command.Extra.Bank.Balance)+" руб.",
 									); err != nil {
 										log.Fatal(err)
 									}
@@ -391,11 +391,11 @@ func main() {
 							// --------------------------------------------------------------------------------------------
 						} else if command.Command == "/get_balance" {
 							// ------------------------------------------- handle update in /get_balance command processing
-							bank, err := store.DataBase.getDocument("banks", update.Message.Chat.ChatId, update.Message.Text)
+							bank, err := store.DataBase.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
 								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
-									store.Bot.ReplyKeyboard.createKeyboard(update.Message.Chat.ChatId)
+									store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 
 									if err = store.Bot.sendMessage(
 										update.Message.Chat.ChatId,
