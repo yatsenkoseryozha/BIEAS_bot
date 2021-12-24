@@ -45,6 +45,20 @@ func (db *DataBase) getBank(chat int, name string) (Bank, error) {
 	return bank, nil
 }
 
+func (db *DataBase) findAccout(chat int) (bool, error) {
+	documents, err := db.getDocuments("banks", chat)
+	if err != nil {
+		return false, err
+	}
+	defer documents.Close(store.CTX)
+
+	if documents.RemainingBatchLength() > 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
 // Bank Models ---------------------------------------------------------------
 type Bank struct {
 	Account int    `json:"account" bson:"account"`
