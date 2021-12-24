@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strconv"
+	"time"
 
+	gonanoid "github.com/matoous/go-nanoid/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -61,9 +63,12 @@ func (db *DataBase) findAccout(chat int) (bool, error) {
 
 // Bank Models ---------------------------------------------------------------
 type Bank struct {
-	Account int    `json:"account" bson:"account"`
-	Name    string `json:"name" bson:"name"`
-	Balance int    `json:"balance" bson:"balance"`
+	Id        string `json:"id" bson:"id"`
+	Account   int    `json:"account" bson:"account"`
+	Name      string `json:"name" bson:"name"`
+	Balance   int    `json:"balance" bson:"balance"`
+	CreatedAt string `json:"created_at" bson:"created_at"`
+	UpdatedAt string `json:"updated_at" bson:"updated_at"`
 }
 
 func (bank *Bank) create() error {
@@ -73,7 +78,17 @@ func (bank *Bank) create() error {
 		return errors.New("Копилка с таким названием уже существует. Попробуй снова")
 	}
 
-	_, err := store.DataBase.Collections["banks"].InsertOne(store.CTX, bank)
+	id, err := gonanoid.New()
+	if err != nil {
+		return err
+	}
+
+	bank.Id = id
+
+	bank.CreatedAt = time.Now().String()
+	bank.UpdatedAt = time.Now().String()
+
+	_, err = store.DataBase.Collections["banks"].InsertOne(store.CTX, bank)
 	if err != nil {
 		return err
 	}
@@ -91,27 +106,54 @@ func (bank *Bank) destroy() error {
 }
 
 func (bank *Bank) updateBalance(amount int, operation string) error {
-	var updatedBalance int
 	if operation == "income" {
-		updatedBalance = bank.Balance + amount
+		bank.Balance = bank.Balance + amount
 	} else if operation == "expense" {
-		updatedBalance = bank.Balance - amount
+		bank.Balance = bank.Balance - amount
 	}
+
+	bank.UpdatedAt = time.Now().String()
 
 	after := options.After
 	options := &options.FindOneAndUpdateOptions{ReturnDocument: &after}
 	err := store.DataBase.Collections["banks"].FindOneAndUpdate(
 		store.CTX,
-		bank,
+		bson.M{"id": bank.Id},
 		bson.M{
 			"$set": bson.M{
-				"balance": updatedBalance,
+				"balance":    bank.Balance,
+				"updated_at": bank.UpdatedAt,
 			},
 		},
 		options,
 	).Decode(&bank)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+type Operation struct {
+	Account   int    `json:"account" bson:"account"`
+	Bank      string `json:"bank" bson:"bank"`
+	Operation string `json:"operation" bson:"operation"`
+	Amout     int    `json:"amount" bson:"amount"`
+	CreatedAt string `json:"created_at" bson:"created_at"`
+}
+
+func (operation *Operation) makeOparetion(bank *Bank) error {
+	operation.Bank = bank.Id
+	operation.CreatedAt = time.Now().String()
+
+	_, err := store.DataBase.Collections["operations"].InsertOne(store.CTX, operation)
+	if err != nil {
+		return err
+	}
+
+	err = bank.updateBalance(operation.Amout, operation.Operation)
+	if err != nil {
+		return nil
 	}
 
 	return nil

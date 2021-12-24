@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -375,12 +374,18 @@ func main() {
 									log.Fatal(err)
 								}
 							} else {
-								if command.Command == "/set_income_amount" {
-									err = command.Extra.Bank.updateBalance(amount, "income")
-								} else if command.Command == "/set_expense_amount" {
-									err = command.Extra.Bank.updateBalance(amount, "expense")
+								operation := Operation{
+									Account: update.Message.Chat.ChatId,
+									Amout:   amount,
 								}
 
+								if command.Command == "/set_income_amount" {
+									operation.Operation = "income"
+								} else if command.Command == "/set_expense_amount" {
+									operation.Operation = "expense"
+								}
+
+								err = operation.makeOparetion(&command.Extra.Bank)
 								if err != nil {
 									log.Println(err)
 									if err = store.Bot.sendMessage(
@@ -444,7 +449,6 @@ func main() {
 				}
 			}
 
-			fmt.Println(store.Processing.Commands)
 			offset = update.UpdateId + 1
 		}
 	}
