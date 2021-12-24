@@ -452,6 +452,7 @@ func main() {
 				}
 			}
 
+			log.Println(update.Message.Chat.Username + " say: " + update.Message.Text)
 			offset = update.UpdateId + 1
 		}
 	}
