@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -49,6 +50,8 @@ func init() {
 }
 
 func main() {
+	fmt.Println("Инициализация прошла успешно! Бот готов к работе.")
+
 	offset := 0
 	for {
 		err := store.Bot.getUpdates(offset)
