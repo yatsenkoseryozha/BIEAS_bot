@@ -60,12 +60,7 @@ func main() {
 		for _, update := range store.Bot.GetUpdatesResp.Updates {
 			if update.Message.Text == "/start" {
 				// ---------------------------------------------------------------------------------- handle /start command
-				bank := Bank{
-					Account: update.Message.Chat.ChatId,
-					Name:    "other",
-					Balance: 0,
-				}
-				err = bank.create()
+				finded, err := store.DataBase.findAccout(update.Message.Chat.ChatId)
 				if err != nil {
 					log.Println(err)
 					if err = store.Bot.sendMessage(
@@ -73,6 +68,24 @@ func main() {
 						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
 					); err != nil {
 						log.Fatal(err)
+					}
+				} else {
+					if finded == true {
+						if err = store.Bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Балуешься?",
+						); err != nil {
+							log.Fatal(err)
+						}
+					} else {
+						store.Processing.addCommand(update.Message.Chat.ChatId, "/create_bank", Extra{})
+
+						if err = store.Bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Привет! Давай создадим для тебя копилку. Какое название дадим ей?",
+						); err != nil {
+							log.Fatal(err)
+						}
 					}
 				}
 				// --------------------------------------------------------------------------------------------------------
