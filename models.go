@@ -1,12 +1,144 @@
 package main
 
 import (
-	"log"
+	"context"
+	"encoding/json"
+	"errors"
+	"io/ioutil"
+	"net/http"
+	"strconv"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// getUpdates Models
+type Store struct {
+	CTX        context.Context
+	DataBase   DataBase
+	Bot        Bot
+	Processing Processing
+}
+
+// ---------------------------------------------------------------------------
+// ----------------------------------------------------------- DATABASE MODELS
+type DataBase struct {
+	Collections map[string]*mongo.Collection
+}
+
+func (db *DataBase) getDocuments(collection string, chat int) (*mongo.Cursor, error) {
+	documents, err := db.Collections[collection].Find(store.CTX, bson.M{"account": chat})
+	if err != nil {
+		return nil, err
+	}
+
+	return documents, nil
+}
+
+func (db *DataBase) getDocument(collection string, chat int, name string) (Bank, error) {
+	var bank Bank
+	db.Collections[collection].FindOne(store.CTX, bson.M{"account": chat, "name": name}).Decode(&bank)
+	if bank.Name == "" {
+		return bank, errors.New("Копилка с таким названием не найдена. Попробуй снова")
+	}
+
+	return bank, nil
+}
+
+// Bank Models ---------------------------------------------------------------
+type Bank struct {
+	Account int    `json:"account" bson:"account"`
+	Name    string `json:"name" bson:"name"`
+	Balance int    `json:"balance" bson:"balance"`
+}
+
+func (bank *Bank) create() error {
+	var findedBank Bank
+	store.DataBase.Collections["banks"].FindOne(store.CTX, bank).Decode(&findedBank)
+	if findedBank.Name == bank.Name {
+		return errors.New("Копилка с таким названием уже существует. Попробуй снова")
+	}
+
+	_, err := store.DataBase.Collections["banks"].InsertOne(store.CTX, bank)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (bank *Bank) destroy() error {
+	_, err := store.DataBase.Collections["banks"].DeleteOne(store.CTX, bank)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (bank *Bank) updateBalance(amount int, operation string) (Bank, error) {
+	updatedBank := bank
+	if operation == "income" {
+		updatedBank.Balance += amount
+	} else if operation == "expense" {
+		updatedBank.Balance -= amount
+	}
+
+	after := options.After
+	options := &options.FindOneAndUpdateOptions{ReturnDocument: &after}
+	err := store.DataBase.Collections["banks"].FindOneAndUpdate(store.CTX, bank, updatedBank, options).Decode(&updatedBank)
+	if err != nil {
+		return Bank{}, err
+	}
+
+	return *updatedBank, nil
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------- BOT MODELS
+type Bot struct {
+	URI            string
+	GetUpdatesResp GetUpdatesResp
+	ReplyKeyboard  ReplyKeyboard
+}
+
+func (bot *Bot) getUpdates(offset int) error {
+	resp, err := http.Get(bot.URI + "/getUpdates" + "?offset=" + strconv.Itoa(offset))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	json.Unmarshal(body, &bot.GetUpdatesResp)
+
+	return nil
+}
+
+func (bot *Bot) sendMessage(chat int, text string) error {
+	options := "?chat_id=" + strconv.Itoa(chat) + "&text=" + text
+
+	keyboardJSON, err := json.Marshal(store.Bot.ReplyKeyboard)
+	if err != nil {
+		return err
+	}
+
+	options += "&reply_markup=" + string(keyboardJSON)
+
+	resp, err := http.Get(store.Bot.URI + "/sendMessage" + options)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	return nil
+}
+
+// Updates Models ------------------------------------------------------------
 type GetUpdatesResp struct {
 	Ok      bool     `json:"ok"`
 	Updates []Update `json:"result"`
@@ -28,20 +160,7 @@ type Chat struct {
 	Username string `json:"username"`
 }
 
-// bank Model
-type Bank struct {
-	Account int
-	Owner   string
-	Name    string
-	Balance int
-}
-
-func (bank *Bank) createBank() error {
-	_, err := collection.InsertOne(ctx, bank)
-	return err
-}
-
-// keyboard Models
+// ReplyKeyboard Models ------------------------------------------------------
 type ReplyKeyboard struct {
 	Keyboard       [][]string `json:"keyboard"`
 	Resize         bool       `json:"resize_keyboard"`
@@ -49,37 +168,38 @@ type ReplyKeyboard struct {
 	RemoveKeyboard bool       `json:"remove_keyboard"`
 }
 
-func (rk *ReplyKeyboard) createBanksKeyboard(chatId int, command string) error {
-	var replyKeyboardRow []string
+func (rk *ReplyKeyboard) createBanksKeyboard(chat int, withDefault bool) error {
+	var keyboardRow []string
 
-	banks, err := collection.Find(ctx, bson.M{"account": chatId})
+	banks, err := store.DataBase.getDocuments("banks", chat)
 	if err != nil {
 		return err
 	}
-	defer banks.Close(ctx)
+	defer banks.Close(store.CTX)
 
-	for banks.Next(ctx) {
+	for banks.Next(store.CTX) {
 		var bank bson.M
-		if err = banks.Decode(&bank); err != nil {
-			log.Println(err)
+		err = banks.Decode(&bank)
+		if err != nil {
+			return err
 		}
 
-		if command == "/destroy_bank" {
-			if bank["name"] != "other" {
-				replyKeyboardRow = append(replyKeyboardRow, bank["name"].(string))
-			}
+		if withDefault == true {
+			keyboardRow = append(keyboardRow, bank["name"].(string))
 		} else {
-			replyKeyboardRow = append(replyKeyboardRow, bank["name"].(string))
+			if bank["name"] != "other" {
+				keyboardRow = append(keyboardRow, bank["name"].(string))
+			}
 		}
 
-		if len(replyKeyboardRow) >= 3 {
-			rk.Keyboard = append(rk.Keyboard, replyKeyboardRow)
-			replyKeyboardRow = []string{}
+		if len(keyboardRow) >= 3 {
+			rk.Keyboard = append(rk.Keyboard, keyboardRow)
+			keyboardRow = []string{}
 		}
 	}
 
-	if len(replyKeyboardRow) > 0 {
-		rk.Keyboard = append(rk.Keyboard, replyKeyboardRow)
+	if len(keyboardRow) > 0 {
+		rk.Keyboard = append(rk.Keyboard, keyboardRow)
 	}
 
 	rk.RemoveKeyboard = false
@@ -87,7 +207,48 @@ func (rk *ReplyKeyboard) createBanksKeyboard(chatId int, command string) error {
 	return nil
 }
 
-func (rk *ReplyKeyboard) destroyBanksKeyboard() {
+func (rk *ReplyKeyboard) destroyKeyboard() {
 	rk.Keyboard = [][]string{}
 	rk.RemoveKeyboard = true
 }
+
+// ---------------------------------------------------------------------------
+// --------------------------------------------------------- PROCESSING MODELS
+type Processing struct {
+	Commands []Command
+}
+
+type Command struct {
+	Chat    int
+	Command string
+	Extra   Extra
+}
+
+type Extra struct {
+	Bank   Bank
+	Amount int
+}
+
+func (proc *Processing) addCommand(chat int, command string, extra Extra) {
+	proc.deleteCommand(chat)
+
+	proc.Commands = append(proc.Commands, Command{
+		Chat:    chat,
+		Command: command,
+		Extra:   extra,
+	})
+}
+
+func (proc *Processing) deleteCommand(chat int) {
+	for index, command := range proc.Commands {
+		if command.Chat == chat {
+			proc.Commands[index] = proc.Commands[len(proc.Commands)-1]
+			proc.Commands = proc.Commands[:len(proc.Commands)-1]
+
+			break
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
