@@ -2,369 +2,428 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"strconv"
 
 	"github.com/joho/godotenv"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var collection *mongo.Collection
-var ctx = context.TODO()
+var store Store
 
 func init() {
+	// find .env file
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("No .env file found")
 	}
 
+	// init DataBase
+	store.CTX = context.TODO()
 	dbUri, _ := os.LookupEnv("DB_URI")
 	clientOptions := options.Client().ApplyURI(dbUri)
-	client, err := mongo.Connect(ctx, clientOptions)
+	client, err := mongo.Connect(store.CTX, clientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	err = client.Ping(ctx, nil)
+	err = client.Ping(store.CTX, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
+	store.DataBase.Collections = make(map[string]*mongo.Collection)
+	store.DataBase.Collections["banks"] = client.Database("general").Collection("Banks")
+	store.DataBase.Collections["operations"] = client.Database("general").Collection("Operations")
 
-	collection = client.Database("general").Collection("Banks")
-}
-
-var currentCommands []CurrentCommand
-
-type CurrentCommand struct {
-	ChatId  int
-	Command string
-}
-
-func main() {
+	// init Bot
 	botUrl := "https://api.telegram.org/bot"
 	botToken, _ := os.LookupEnv("BOT_TOKEN")
-	botUri := botUrl + botToken
-
-	var replyKeyboard = ReplyKeyboard{
+	store.Bot.URI = botUrl + botToken
+	store.Bot.ReplyKeyboard = ReplyKeyboard{
 		Keyboard:       [][]string{},
 		Resize:         true,
 		OneTime:        true,
 		RemoveKeyboard: true,
 	}
-	var previousCommand string
+}
 
-	var currentBank bson.M
-
+func main() {
 	offset := 0
 	for {
-		updates, err := getUpdates(botUri, offset)
+		err := store.Bot.getUpdates(offset)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		for _, update := range updates {
+		for _, update := range store.Bot.GetUpdatesResp.Updates {
 			if update.Message.Text == "/start" {
+				// ---------------------------------------------------------------------------------- handle /start command
 				bank := Bank{
 					Account: update.Message.Chat.ChatId,
-					Owner:   update.Message.Chat.Username,
 					Name:    "other",
 					Balance: 0,
 				}
-				err = bank.createBank()
+				err = bank.create()
 				if err != nil {
 					log.Println(err)
-					sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+					if err = store.Bot.sendMessage(
+						update.Message.Chat.ChatId,
+						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+					); err != nil {
+						log.Fatal(err)
+					}
 				}
+				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/cancel" {
-				replyKeyboard.destroyBanksKeyboard()
+				// --------------------------------------------------------------------------------- handle /cancel command
+				store.Processing.deleteCommand(update.Message.Chat.ChatId)
 
-				currentCommands = append(currentCommands, CurrentCommand{
-					ChatId:  update.Message.Chat.ChatId,
-					Command: "",
-				})
-				sendMessage(botUri, update.Message.Chat.ChatId, "Что-нибудь ещё?", &replyKeyboard)
+				if err = store.Bot.sendMessage(
+					update.Message.Chat.ChatId,
+					"Что-нибудь ещё?",
+				); err != nil {
+					log.Fatal(err)
+				}
+				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/create_bank" {
-				replyKeyboard.destroyBanksKeyboard()
+				// ---------------------------------------------------------------------------- handle /create_bank command
+				store.Processing.addCommand(update.Message.Chat.ChatId, update.Message.Text, Extra{})
 
-				// previousCommand = "/create_bank"
-				currentCommands = append(currentCommands, CurrentCommand{
-					ChatId:  update.Message.Chat.ChatId,
-					Command: "/create_bank",
-				})
-				sendMessage(botUri, update.Message.Chat.ChatId, "Как хочешь назвать новую копилку? Если передумал, напиши /cancel", &replyKeyboard)
+				if err = store.Bot.sendMessage(
+					update.Message.Chat.ChatId,
+					"Как хочешь назвать новую копилку? Напиши /cancel, если передумал",
+				); err != nil {
+					log.Fatal(err)
+				}
+				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/destroy_bank" {
-				err = replyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, "/destroy_bank")
+				// --------------------------------------------------------------------------- handle /destroy_bank command
+				err = store.Bot.ReplyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, false)
 				if err != nil {
 					log.Println(err)
-					sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
-				} else {
-					if len(replyKeyboard.Keyboard) > 0 {
-						// previousCommand = "/destroy_bank"
-						currentCommands = append(currentCommands, CurrentCommand{
-							ChatId:  update.Message.Chat.ChatId,
-							Command: "/destroy_bank",
-						})
-						sendMessage(botUri, update.Message.Chat.ChatId, "Какую копилку ты хочешь удалить? Если передумал, напиши /cancel", &replyKeyboard)
-					} else {
-						sendMessage(botUri, update.Message.Chat.ChatId, "Нет копилок, которые ты мог бы удалить", &replyKeyboard)
+					if err = store.Bot.sendMessage(
+						update.Message.Chat.ChatId,
+						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+					); err != nil {
+						log.Fatal(err)
 					}
-				}
-			} else if update.Message.Text == "/income" || update.Message.Text == "/expense" {
-				err = replyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, "/income")
-				if err != nil {
-					log.Println(err)
-					sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
 				} else {
-					if update.Message.Text == "/income" {
-						// previousCommand = "/income-to"
-						currentCommands = append(currentCommands, CurrentCommand{
-							ChatId:  update.Message.Chat.ChatId,
-							Command: "/income-to",
-						})
-						sendMessage(botUri, update.Message.Chat.ChatId, "Баланс какой копилки был увеличен? Если передумал, напиши /cancel", &replyKeyboard)
-					} else if update.Message.Text == "/expense" {
-						// previousCommand = "/expense-to"
-						currentCommands = append(currentCommands, CurrentCommand{
-							ChatId:  update.Message.Chat.ChatId,
-							Command: "/expense-to",
-						})
-						sendMessage(botUri, update.Message.Chat.ChatId, "Баланс какой копилки был уменьшен? Если передумал, напиши /cancel", &replyKeyboard)
-					}
-				}
-			} else if update.Message.Text == "/get_balance" {
-				err = replyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, "/get_balance")
-				if err != nil {
-					log.Println(err)
-					sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
-				} else {
-					// previousCommand = "/get_balance"
-					currentCommands = append(currentCommands, CurrentCommand{
-						ChatId:  update.Message.Chat.ChatId,
-						Command: "/get_balance",
-					})
-					sendMessage(botUri, update.Message.Chat.ChatId, "Баланс какой копилки ты хочешь узнать? Если передумал, напиши /cancel", &replyKeyboard)
-				}
-			} else {
-				for index, currentCommand := range currentCommands {
-					if currentCommand.ChatId == update.Message.Chat.ChatId {
-						if currentCommand.Command == "/create_bank" {
-							nameIsValid := true
+					if len(store.Bot.ReplyKeyboard.Keyboard) == 0 {
+						store.Bot.ReplyKeyboard.destroyKeyboard()
 
-							banks, err := collection.Find(ctx, bson.M{"account": update.Message.Chat.ChatId})
+						if err = store.Bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Нет копилок, которые ты мог бы удалить",
+						); err != nil {
+							log.Fatal(err)
+						}
+					} else {
+						store.Processing.addCommand(update.Message.Chat.ChatId, update.Message.Text, Extra{})
+
+						if err = store.Bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Какую копилку ты хочешь удалить? Напиши /cancel, если передумал",
+						); err != nil {
+							log.Fatal(err)
+						}
+
+						store.Bot.ReplyKeyboard.destroyKeyboard()
+					}
+				}
+				// --------------------------------------------------------------------------------------------------------
+			} else if update.Message.Text == "/income" || update.Message.Text == "/expense" {
+				// ------------------------------------------------------------------- handle /income and /expense commands
+				err = store.Bot.ReplyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, true)
+				if err != nil {
+					log.Println(err)
+					if err = store.Bot.sendMessage(
+						update.Message.Chat.ChatId,
+						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+					); err != nil {
+						log.Fatal(err)
+					}
+				} else {
+					store.Processing.addCommand(update.Message.Chat.ChatId, update.Message.Text, Extra{})
+
+					var operation string
+					if update.Message.Text == "/income" {
+						operation = "увеличен"
+					} else if update.Message.Text == "/expense" {
+						operation = "уменьшен"
+					}
+
+					if err = store.Bot.sendMessage(
+						update.Message.Chat.ChatId,
+						"Баланс какой копилки был "+operation+"? Напиши /cancel, если передумал",
+					); err != nil {
+						log.Fatal(err)
+					}
+
+					store.Bot.ReplyKeyboard.destroyKeyboard()
+				}
+				// --------------------------------------------------------------------------------------------------------
+			} else if update.Message.Text == "/get_balance" {
+				// ---------------------------------------------------------------------------- handle /get_balance command
+				err = store.Bot.ReplyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, true)
+				if err != nil {
+					log.Println(err)
+					if err = store.Bot.sendMessage(
+						update.Message.Chat.ChatId,
+						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+					); err != nil {
+						log.Fatal(err)
+					}
+				} else {
+					store.Processing.addCommand(update.Message.Chat.ChatId, update.Message.Text, Extra{})
+
+					if err = store.Bot.sendMessage(
+						update.Message.Chat.ChatId,
+						"Баланс какой копилки ты хочешь узнать? Напиши /cancel, если передумал",
+					); err != nil {
+						log.Fatal(err)
+					}
+
+					store.Bot.ReplyKeyboard.destroyKeyboard()
+				}
+				// --------------------------------------------------------------------------------------------------------
+			} else {
+				for _, command := range store.Processing.Commands {
+					if command.Chat == update.Message.Chat.ChatId {
+						if command.Command == "/create_bank" {
+							// ------------------------------------------- handle update in /create_bank command processing
+							bank := Bank{
+								Account: update.Message.Chat.ChatId,
+								Name:    update.Message.Text,
+								Balance: 0,
+							}
+
+							err = bank.create()
 							if err != nil {
 								log.Println(err)
-
-								deleteCurrentCommand(index)
-								sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
-							} else {
-								for banks.Next(ctx) {
-									var bank bson.M
-									err = banks.Decode(&bank)
-									if err != nil {
-										log.Println(err)
-										// MAKE PANIC HERE
-									}
-
-									if bank["name"] == update.Message.Text {
-										nameIsValid = false
-									}
-								}
-
-								if nameIsValid {
-									bank := Bank{
-										Account: update.Message.Chat.ChatId,
-										Owner:   update.Message.Chat.Username,
-										Name:    update.Message.Text,
-										Balance: 0,
-									}
-									err = bank.createBank()
-									if err != nil {
-										log.Println(err)
-
-										deleteCurrentCommand(index)
-										sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
-									} else {
-										deleteCurrentCommand(index)
-										sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно создана!", &replyKeyboard)
+								if err.Error() == "Копилка с таким названием уже существует. Попробуй снова" {
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Копилка с таким названием уже существует. Попробуй снова",
+									); err != nil {
+										log.Fatal(err)
 									}
 								} else {
-									sendMessage(botUri, update.Message.Chat.ChatId, "Копилка с таким названием уже существует. Попробуй другое", &replyKeyboard)
-								}
-							}
-							defer banks.Close(ctx)
-						} else if currentCommand.Command == "/destroy_bank" {
-							replyKeyboard.destroyBanksKeyboard()
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+									); err != nil {
+										log.Fatal(err)
+									}
 
-							_, err = collection.DeleteOne(
-								ctx,
-								bson.M{
-									"account": update.Message.Chat.ChatId,
-									"name":    update.Message.Text,
-								},
-							)
+									store.Processing.deleteCommand(update.Message.Chat.ChatId)
+								}
+							} else {
+								if err = store.Bot.sendMessage(
+									update.Message.Chat.ChatId,
+									"Копилка успешно создана!",
+								); err != nil {
+									log.Fatal(err)
+								}
+
+								store.Processing.deleteCommand(update.Message.Chat.ChatId)
+							}
+							// --------------------------------------------------------------------------------------------
+						} else if command.Command == "/destroy_bank" {
+							// ------------------------------------------ handle update in /destroy_bank command processing
+							bank, err := store.DataBase.getDocument("banks", update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
+								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
+									store.Bot.ReplyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, false)
 
-								deleteCurrentCommand(index)
-								sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Копилка с таким названием не найдена. Попробуй снова",
+									); err != nil {
+										log.Fatal(err)
+									}
+
+									store.Bot.ReplyKeyboard.destroyKeyboard()
+								} else {
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+									); err != nil {
+										log.Fatal(err)
+									}
+
+									store.Processing.deleteCommand(update.Message.Chat.ChatId)
+								}
 							} else {
-								deleteCurrentCommand(index)
-								sendMessage(botUri, update.Message.Chat.ChatId, "Копилка успешно удалена!", &replyKeyboard)
+								if bank.Name == "other" {
+									store.Bot.ReplyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, false)
+
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Ты не можешь удалить эту копилку. Выбери другой варинат",
+									); err != nil {
+										log.Fatal(err)
+									}
+
+									store.Bot.ReplyKeyboard.destroyKeyboard()
+								} else {
+									err = bank.destroy()
+									if err != nil {
+										log.Println(err)
+										if err = store.Bot.sendMessage(
+											update.Message.Chat.ChatId,
+											"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+										); err != nil {
+											log.Fatal(err)
+										}
+									} else {
+										if err = store.Bot.sendMessage(
+											update.Message.Chat.ChatId,
+											"Копилка успешно удалена!",
+										); err != nil {
+											log.Fatal(err)
+										}
+									}
+
+									store.Processing.deleteCommand(update.Message.Chat.ChatId)
+								}
 							}
-						} else if currentCommand.Command == "/income-to" || previousCommand == "/expense-to" {
-							result := collection.FindOne(
-								ctx, bson.M{
-									"account": update.Message.Chat.ChatId,
-									"name":    update.Message.Text,
-								},
-							)
-							err = result.Decode(&currentBank)
+							// --------------------------------------------------------------------------------------------
+						} else if command.Command == "/income" || command.Command == "/expense" {
+							// ------------------------------------ handle update in /income or /expense command processing
+							bank, err := store.DataBase.getDocument("banks", update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
+								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
+									store.Bot.ReplyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, false)
 
-								deleteCurrentCommand(index)
-								sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
-							}
-							if len(currentBank) == 0 {
-								sendMessage(botUri, update.Message.Chat.ChatId, "Такой копилки не существует. Попробу снова", &replyKeyboard)
-							} else {
-								replyKeyboard.destroyBanksKeyboard()
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Копилка с таким названием не найдена. Попробуй снова",
+									); err != nil {
+										log.Fatal(err)
+									}
 
-								if currentCommand.Command == "/income-to" {
-									previousCommand = "/income-count"
-									deleteCurrentCommand(index)
-								} else if currentCommand.Command == "/expense-to" {
-									previousCommand = "/expense-count"
+									store.Bot.ReplyKeyboard.destroyKeyboard()
+								} else {
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+									); err != nil {
+										log.Fatal(err)
+									}
+
+									store.Processing.deleteCommand(update.Message.Chat.ChatId)
 								}
-								sendMessage(botUri, update.Message.Chat.ChatId, "На какую сумму?", &replyKeyboard)
+							} else {
+								if err = store.Bot.sendMessage(
+									update.Message.Chat.ChatId,
+									"На какую сумму?",
+								); err != nil {
+									log.Fatal(err)
+								}
+
+								var commandToProcessing string
+								if command.Command == "/income" {
+									commandToProcessing = "/set_income_amount"
+								} else if command.Command == "/expense" {
+									commandToProcessing = "/set_expense_amount"
+								}
+
+								store.Processing.addCommand(
+									update.Message.Chat.ChatId,
+									commandToProcessing,
+									Extra{
+										Bank: bank,
+									},
+								)
 							}
-						} else if currentCommand.Command == "/income-count" || previousCommand == "/expense-count" {
-							incomeCount, err := strconv.Atoi(update.Message.Text)
+							// --------------------------------------------------------------------------------------------
+						} else if command.Command == "/set_income_amount" || command.Command == "/set_expense_amount" {
+							// -------------- handle update in /set_income_amount or /set_expense_amount command processing
+							amount, err := strconv.Atoi(update.Message.Text)
 							if err != nil {
 								log.Println(err)
-								sendMessage(botUri, update.Message.Chat.ChatId, "Некорректное значение. Попробуй снова", &replyKeyboard)
-							} else {
-								after := options.After
-								var result *mongo.SingleResult
-								if currentCommand.Command == "/income-count" {
-									result = collection.FindOneAndUpdate(
-										ctx,
-										bson.M{
-											"account": update.Message.Chat.ChatId,
-											"name":    currentBank["name"].(string),
-										},
-										bson.M{
-											"$set": bson.M{"balance": currentBank["balance"].(int32) + int32(incomeCount)},
-										},
-										&options.FindOneAndUpdateOptions{
-											ReturnDocument: &after,
-										},
-									)
-								} else if currentCommand.Command == "/expense-count" {
-									result = collection.FindOneAndUpdate(
-										ctx,
-										bson.M{
-											"account": update.Message.Chat.ChatId,
-											"name":    currentBank["name"].(string),
-										},
-										bson.M{
-											"$set": bson.M{"balance": currentBank["balance"].(int32) - int32(incomeCount)},
-										},
-										&options.FindOneAndUpdateOptions{
-											ReturnDocument: &after,
-										},
-									)
+								if err = store.Bot.sendMessage(
+									update.Message.Chat.ChatId,
+									"Некорректное значение. Попробуй снова",
+								); err != nil {
+									log.Fatal(err)
 								}
-								err = result.Decode(&currentBank)
+							} else {
+								var updatedBank Bank
+								if command.Command == "/set_income_amount" {
+									updatedBank, err = command.Extra.Bank.updateBalance(amount, "income")
+								} else if command.Command == "/set_expense_amount" {
+									updatedBank, err = command.Extra.Bank.updateBalance(amount, "expense")
+								}
+
 								if err != nil {
 									log.Println(err)
-
-									deleteCurrentCommand(index)
-									sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+									); err != nil {
+										log.Fatal(err)
+									}
 								} else {
-									currentBalance := strconv.Itoa(int(currentBank["balance"].(int32)))
-
-									deleteCurrentCommand(index)
-									sendMessage(botUri, update.Message.Chat.ChatId, "Баланс копилки был успешно изменен! Текущий баланс: "+currentBalance+" руб.", &replyKeyboard)
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Баланс копилки был успешно изменен! Текущий баланс: "+string(rune(updatedBank.Balance))+" руб.",
+									); err != nil {
+										log.Fatal(err)
+									}
 								}
-							}
-						} else if currentCommand.Command == "/get_balance" {
-							replyKeyboard.destroyBanksKeyboard()
 
-							result := collection.FindOne(
-								ctx,
-								bson.M{
-									"account": update.Message.Chat.ChatId,
-									"name":    update.Message.Text,
-								},
-							)
-							err = result.Decode(&currentBank)
+								store.Processing.deleteCommand(update.Message.Chat.ChatId)
+							}
+							// --------------------------------------------------------------------------------------------
+						} else if command.Command == "/get_balance" {
+							// ------------------------------------------- handle update in /get_balance command processing
+							bank, err := store.DataBase.getDocument("banks", update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
+								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
+									store.Bot.ReplyKeyboard.createBanksKeyboard(update.Message.Chat.ChatId, false)
 
-								deleteCurrentCommand(index)
-								sendMessage(botUri, update.Message.Chat.ChatId, "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53", &replyKeyboard)
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Копилка с таким названием не найдена. Попробуй снова",
+									); err != nil {
+										log.Fatal(err)
+									}
+
+									store.Bot.ReplyKeyboard.destroyKeyboard()
+								} else {
+									if err = store.Bot.sendMessage(
+										update.Message.Chat.ChatId,
+										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+									); err != nil {
+										log.Fatal(err)
+									}
+
+									store.Processing.deleteCommand(update.Message.Chat.ChatId)
+								}
 							} else {
-								currentBalance := strconv.Itoa(int(currentBank["balance"].(int32)))
+								if err = store.Bot.sendMessage(
+									update.Message.Chat.ChatId,
+									"Баланс копилки "+bank.Name+" составляет "+strconv.Itoa(bank.Balance)+" руб.",
+								); err != nil {
+									log.Fatal(err)
+								}
 
-								deleteCurrentCommand(index)
-								sendMessage(botUri, update.Message.Chat.ChatId, "Баланс копилки "+currentBank["name"].(string)+" составляет "+currentBalance+" руб.", &replyKeyboard)
+								store.Processing.deleteCommand(update.Message.Chat.ChatId)
 							}
+							// --------------------------------------------------------------------------------------------
 						}
 					}
 				}
 			}
 
+			fmt.Println(store.Processing.Commands)
 			offset = update.UpdateId + 1
 		}
 	}
-}
-
-func getUpdates(botUri string, offset int) ([]Update, error) {
-	resp, err := http.Get(botUri + "/getUpdates" + "?offset=" + strconv.Itoa(offset))
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	var getUpdatesResp *GetUpdatesResp
-
-	json.Unmarshal(body, &getUpdatesResp)
-
-	return getUpdatesResp.Updates, nil
-}
-
-func sendMessage(botUri string, chatId int, text string, keyboard *ReplyKeyboard) error {
-	options := "?chat_id=" + strconv.Itoa(chatId) + "&text=" + text
-
-	keyboardJSON, err := json.Marshal(keyboard)
-	if err != nil {
-		return err
-	}
-
-	options += "&reply_markup=" + string(keyboardJSON)
-
-	resp, err := http.Get(botUri + "/sendMessage" + options)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	return nil
-}
-
-func deleteCurrentCommand(index int) {
-	currentCommands[index] = currentCommands[len(currentCommands)-1]
-	currentCommands = currentCommands[:len(currentCommands)-1]
 }
