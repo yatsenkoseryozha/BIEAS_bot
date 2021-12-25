@@ -129,7 +129,12 @@ func main() {
 
 				if err = bot.sendMessage(
 					update.Message.Chat.ChatId,
-					"Что-нибудь ещё?",
+					"Для работый с ботом используй одну из следующих команд:\n"+
+						"/create_bank - создать копилку\n"+
+						"/destroy_bank - удалить копилку\n"+
+						"/income - увеличить баланс копилки\n"+
+						"/expense - уменьшить баланс копилки\n"+
+						"/get_balance - узнать баланс копилки",
 				); err != nil {
 					log.Fatal(err)
 				}
