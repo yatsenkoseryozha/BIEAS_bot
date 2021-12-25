@@ -13,6 +13,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+const NO_BANKS = "NO_BANKS"
+const BANK_NAME_IS_EXIST = "BANK_NAME_IS_EXIST"
+const BANK_NOT_FOUND = "BANK_NOT_FOUND"
+const INCORRECT_VALUE = "INCORRECT_VALUE"
+const UNEXPECTED_ERROR = "UNEXPECTED_ERROR"
+
 var store Store
 
 func init() {
@@ -50,6 +56,23 @@ func init() {
 		OneTime:        true,
 		RemoveKeyboard: true,
 	}
+	store.Bot.Errors = map[string]Error{
+		NO_BANKS: {
+			Message: "На твоем аккаунте нет ни одной копилки!",
+		},
+		BANK_NAME_IS_EXIST: {
+			Message: "Копилка с таким названием уже существует. Попробуй снова",
+		},
+		BANK_NOT_FOUND: {
+			Message: "Копилка с таким названием не найдена. Попробуй снова",
+		},
+		INCORRECT_VALUE: {
+			Message: "Некорректное значение. Попробуй снова",
+		},
+		UNEXPECTED_ERROR: {
+			Message: "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+		},
+	}
 }
 
 func main() {
@@ -65,13 +88,14 @@ func main() {
 		for _, update := range store.Bot.GetUpdatesResp.Updates {
 			if update.Message.Text == "/start" {
 				// ---------------------------------------------------------------------------------- handle /start command
+				store.Processing.deleteCommand(update.Message.Chat.ChatId)
+
 				finded, err := store.DataBase.findAccout(update.Message.Chat.ChatId)
 				if err != nil {
 					log.Println(err)
-					if err = store.Bot.sendMessage(
-						update.Message.Chat.ChatId,
-						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-					); err != nil {
+
+					err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+					if err != nil {
 						log.Fatal(err)
 					}
 				} else {
@@ -118,23 +142,24 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/destroy_bank" {
 				// --------------------------------------------------------------------------- handle /destroy_bank command
+				store.Processing.deleteCommand(update.Message.Chat.ChatId)
+
 				err = store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
 					log.Println(err)
-					if err = store.Bot.sendMessage(
-						update.Message.Chat.ChatId,
-						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-					); err != nil {
+
+					store.Bot.ReplyKeyboard.destroyKeyboard()
+
+					err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+					if err != nil {
 						log.Fatal(err)
 					}
 				} else {
 					if len(store.Bot.ReplyKeyboard.Keyboard) == 0 {
 						store.Bot.ReplyKeyboard.destroyKeyboard()
 
-						if err = store.Bot.sendMessage(
-							update.Message.Chat.ChatId,
-							"На твоем аккаунте нет ни одной копилки!",
-						); err != nil {
+						err = store.Bot.sendError(update.Message.Chat.ChatId, NO_BANKS)
+						if err != nil {
 							log.Fatal(err)
 						}
 					} else {
@@ -153,23 +178,24 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/income" || update.Message.Text == "/expense" {
 				// ------------------------------------------------------------------- handle /income and /expense commands
+				store.Processing.deleteCommand(update.Message.Chat.ChatId)
+
 				err = store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
 					log.Println(err)
-					if err = store.Bot.sendMessage(
-						update.Message.Chat.ChatId,
-						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-					); err != nil {
+
+					store.Bot.ReplyKeyboard.destroyKeyboard()
+
+					err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+					if err != nil {
 						log.Fatal(err)
 					}
 				} else {
 					if len(store.Bot.ReplyKeyboard.Keyboard) == 0 {
 						store.Bot.ReplyKeyboard.destroyKeyboard()
 
-						if err = store.Bot.sendMessage(
-							update.Message.Chat.ChatId,
-							"На твоем аккаунте нет ни одной копилки!",
-						); err != nil {
+						err = store.Bot.sendError(update.Message.Chat.ChatId, NO_BANKS)
+						if err != nil {
 							log.Fatal(err)
 						}
 					} else {
@@ -195,23 +221,24 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/get_balance" {
 				// ---------------------------------------------------------------------------- handle /get_balance command
+				store.Processing.deleteCommand(update.Message.Chat.ChatId)
+
 				err = store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
 					log.Println(err)
-					if err = store.Bot.sendMessage(
-						update.Message.Chat.ChatId,
-						"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-					); err != nil {
+
+					store.Bot.ReplyKeyboard.destroyKeyboard()
+
+					err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+					if err != nil {
 						log.Fatal(err)
 					}
 				} else {
 					if len(store.Bot.ReplyKeyboard.Keyboard) == 0 {
 						store.Bot.ReplyKeyboard.destroyKeyboard()
 
-						if err = store.Bot.sendMessage(
-							update.Message.Chat.ChatId,
-							"На твоем аккаунте нет ни одной копилки!",
-						); err != nil {
+						err = store.Bot.sendError(update.Message.Chat.ChatId, NO_BANKS)
+						if err != nil {
 							log.Fatal(err)
 						}
 					} else {
@@ -242,18 +269,15 @@ func main() {
 							err = bank.create()
 							if err != nil {
 								log.Println(err)
-								if err.Error() == "Копилка с таким названием уже существует. Попробуй снова" {
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Копилка с таким названием уже существует. Попробуй снова",
-									); err != nil {
+
+								if err.Error() == BANK_NAME_IS_EXIST {
+									err = store.Bot.sendError(update.Message.Chat.ChatId, BANK_NAME_IS_EXIST)
+									if err != nil {
 										log.Fatal(err)
 									}
 								} else {
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-									); err != nil {
+									err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+									if err != nil {
 										log.Fatal(err)
 									}
 
@@ -275,22 +299,19 @@ func main() {
 							bank, err := store.DataBase.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
-								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
+
+								if err.Error() == BANK_NOT_FOUND {
 									store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Копилка с таким названием не найдена. Попробуй снова",
-									); err != nil {
+									err = store.Bot.sendError(update.Message.Chat.ChatId, BANK_NOT_FOUND)
+									if err != nil {
 										log.Fatal(err)
 									}
 
 									store.Bot.ReplyKeyboard.destroyKeyboard()
 								} else {
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-									); err != nil {
+									err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+									if err != nil {
 										log.Fatal(err)
 									}
 
@@ -300,10 +321,9 @@ func main() {
 								err = bank.destroy()
 								if err != nil {
 									log.Println(err)
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-									); err != nil {
+
+									err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+									if err != nil {
 										log.Fatal(err)
 									}
 								} else {
@@ -323,32 +343,26 @@ func main() {
 							bank, err := store.DataBase.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
-								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
+								if err.Error() == BANK_NOT_FOUND {
 									store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Копилка с таким названием не найдена. Попробуй снова",
-									); err != nil {
+									err = store.Bot.sendError(update.Message.Chat.ChatId, BANK_NOT_FOUND)
+									if err != nil {
 										log.Fatal(err)
 									}
 
 									store.Bot.ReplyKeyboard.destroyKeyboard()
 								} else {
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-									); err != nil {
+									err = store.Bot.sendError(update.Message.Chat.ChatId, BANK_NOT_FOUND)
+									if err != nil {
 										log.Fatal(err)
 									}
 
 									store.Processing.deleteCommand(update.Message.Chat.ChatId)
 								}
 							} else {
-								if err = store.Bot.sendMessage(
-									update.Message.Chat.ChatId,
-									"На какую сумму?",
-								); err != nil {
+								err = store.Bot.sendMessage(update.Message.Chat.ChatId, "На какую сумму?")
+								if err != nil {
 									log.Fatal(err)
 								}
 
@@ -373,10 +387,8 @@ func main() {
 							amount, err := strconv.Atoi(update.Message.Text)
 							if err != nil {
 								log.Println(err)
-								if err = store.Bot.sendMessage(
-									update.Message.Chat.ChatId,
-									"Некорректное значение. Попробуй снова",
-								); err != nil {
+								err = store.Bot.sendError(update.Message.Chat.ChatId, INCORRECT_VALUE)
+								if err != nil {
 									log.Fatal(err)
 								}
 							} else {
@@ -394,10 +406,9 @@ func main() {
 								err = operation.makeOparetion(&command.Extra.Bank)
 								if err != nil {
 									log.Println(err)
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-									); err != nil {
+
+									err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+									if err != nil {
 										log.Fatal(err)
 									}
 								} else {
@@ -418,22 +429,18 @@ func main() {
 							bank, err := store.DataBase.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
 								log.Println(err)
-								if err.Error() == "Копилка с таким названием не найдена. Попробуй снова" {
+								if err.Error() == BANK_NOT_FOUND {
 									store.Bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Копилка с таким названием не найдена. Попробуй снова",
-									); err != nil {
+									err = store.Bot.sendError(update.Message.Chat.ChatId, BANK_NOT_FOUND)
+									if err != nil {
 										log.Fatal(err)
 									}
 
 									store.Bot.ReplyKeyboard.destroyKeyboard()
 								} else {
-									if err = store.Bot.sendMessage(
-										update.Message.Chat.ChatId,
-										"Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
-									); err != nil {
+									err = store.Bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+									if err != nil {
 										log.Fatal(err)
 									}
 
