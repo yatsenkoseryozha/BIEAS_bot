@@ -72,9 +72,13 @@ type Bank struct {
 }
 
 func (bank *Bank) create() error {
-	var findedBank Bank
-	store.DataBase.Collections["banks"].FindOne(store.CTX, bank).Decode(&findedBank)
-	if findedBank.Name == bank.Name {
+	documents, err := store.DataBase.Collections["banks"].Find(
+		store.CTX,
+		bson.M{"account": bank.Account, "name": bank.Name},
+	)
+	defer documents.Close(store.CTX)
+
+	if documents.RemainingBatchLength() > 0 {
 		return errors.New("Копилка с таким названием уже существует. Попробуй снова")
 	}
 
@@ -97,8 +101,10 @@ func (bank *Bank) create() error {
 }
 
 func (bank *Bank) destroy() error {
-	_, err := store.DataBase.Collections["banks"].DeleteOne(store.CTX, bank)
-	if err != nil {
+	if _, err := store.DataBase.Collections["banks"].DeleteOne(
+		store.CTX,
+		bson.M{"account": bank.Account, "name": bank.Name},
+	); err != nil {
 		return err
 	}
 
