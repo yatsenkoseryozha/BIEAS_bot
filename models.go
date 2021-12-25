@@ -321,5 +321,14 @@ func (processing *Processing) destroyProcess(chat int) {
 	}
 }
 
+func (processing *Processing) findProcess(chat int) int {
+	for index, process := range processing.Processes {
+		if process.Chat == chat {
+			return index
+		}
+	}
+	return -1
+}
+
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
