@@ -61,6 +61,7 @@ func init() {
 		OneTime:        true,
 		RemoveKeyboard: true,
 	}
+	developer, _ := os.LookupEnv("DEVELOPER")
 	bot.Errors = map[string]Error{
 		NO_BANKS: {
 			Message: "На твоем аккаунте нет ни одной копилки!",
@@ -75,7 +76,7 @@ func init() {
 			Message: "Некорректное значение. Попробуй снова",
 		},
 		UNEXPECTED_ERROR: {
-			Message: "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @iss53",
+			Message: "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @" + developer,
 		},
 	}
 
