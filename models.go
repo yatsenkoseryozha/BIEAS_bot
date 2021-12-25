@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
@@ -15,13 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Store struct {
-	CTX        context.Context
-	DataBase   DataBase
-	Bot        Bot
-	Processing Processing
-}
-
 // ---------------------------------------------------------------------------
 // ----------------------------------------------------------- DATABASE MODELS
 type DataBase struct {
@@ -29,7 +21,7 @@ type DataBase struct {
 }
 
 func (db *DataBase) getDocuments(collection string, chat int) (*mongo.Cursor, error) {
-	documents, err := db.Collections[collection].Find(store.CTX, bson.M{"account": chat})
+	documents, err := db.Collections[collection].Find(ctx, bson.M{"account": chat})
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +31,7 @@ func (db *DataBase) getDocuments(collection string, chat int) (*mongo.Cursor, er
 
 func (db *DataBase) getBank(chat int, name string) (Bank, error) {
 	var bank Bank
-	db.Collections["banks"].FindOne(store.CTX, bson.M{"account": chat, "name": name}).Decode(&bank)
+	db.Collections["banks"].FindOne(ctx, bson.M{"account": chat, "name": name}).Decode(&bank)
 	if bank.Name == "" {
 		return bank, errors.New(BANK_NOT_FOUND)
 	}
@@ -52,7 +44,7 @@ func (db *DataBase) findAccout(chat int) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	defer documents.Close(store.CTX)
+	defer documents.Close(ctx)
 
 	if documents.RemainingBatchLength() > 0 {
 		return true, nil
@@ -72,11 +64,11 @@ type Bank struct {
 }
 
 func (bank *Bank) create() error {
-	documents, err := store.DataBase.Collections["banks"].Find(
-		store.CTX,
+	documents, err := db.Collections["banks"].Find(
+		ctx,
 		bson.M{"account": bank.Account, "name": bank.Name},
 	)
-	defer documents.Close(store.CTX)
+	defer documents.Close(ctx)
 
 	if documents.RemainingBatchLength() > 0 {
 		return errors.New(BANK_NAME_IS_EXIST)
@@ -92,7 +84,7 @@ func (bank *Bank) create() error {
 	bank.CreatedAt = time.Now().String()
 	bank.UpdatedAt = time.Now().String()
 
-	_, err = store.DataBase.Collections["banks"].InsertOne(store.CTX, bank)
+	_, err = db.Collections["banks"].InsertOne(ctx, bank)
 	if err != nil {
 		return err
 	}
@@ -101,8 +93,8 @@ func (bank *Bank) create() error {
 }
 
 func (bank *Bank) destroy() error {
-	if _, err := store.DataBase.Collections["banks"].DeleteOne(
-		store.CTX,
+	if _, err := db.Collections["banks"].DeleteOne(
+		ctx,
 		bson.M{"account": bank.Account, "name": bank.Name},
 	); err != nil {
 		return err
@@ -122,8 +114,8 @@ func (bank *Bank) updateBalance(amount int, operation string) error {
 
 	after := options.After
 	options := &options.FindOneAndUpdateOptions{ReturnDocument: &after}
-	err := store.DataBase.Collections["banks"].FindOneAndUpdate(
-		store.CTX,
+	err := db.Collections["banks"].FindOneAndUpdate(
+		ctx,
 		bson.M{"id": bank.Id},
 		bson.M{
 			"$set": bson.M{
@@ -152,7 +144,7 @@ func (operation *Operation) makeOparetion(bank *Bank) error {
 	operation.Bank = bank.Id
 	operation.CreatedAt = time.Now().String()
 
-	_, err := store.DataBase.Collections["operations"].InsertOne(store.CTX, operation)
+	_, err := db.Collections["operations"].InsertOne(ctx, operation)
 	if err != nil {
 		return err
 	}
@@ -172,10 +164,6 @@ type Bot struct {
 	GetUpdatesResp GetUpdatesResp
 	ReplyKeyboard  ReplyKeyboard
 	Errors         map[string]Error
-}
-
-type Error struct {
-	Message string
 }
 
 func (bot *Bot) getUpdates(offset int) error {
@@ -198,20 +186,24 @@ func (bot *Bot) getUpdates(offset int) error {
 func (bot *Bot) sendMessage(chat int, text string) error {
 	options := "?chat_id=" + strconv.Itoa(chat) + "&text=" + text
 
-	keyboardJSON, err := json.Marshal(store.Bot.ReplyKeyboard)
+	keyboardJSON, err := json.Marshal(bot.ReplyKeyboard)
 	if err != nil {
 		return err
 	}
 
 	options += "&reply_markup=" + string(keyboardJSON)
 
-	resp, err := http.Get(store.Bot.URI + "/sendMessage" + options)
+	resp, err := http.Get(bot.URI + "/sendMessage" + options)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
 	return nil
+}
+
+type Error struct {
+	Message string
 }
 
 func (bot *Bot) sendError(chat int, errorName string) error {
@@ -256,13 +248,13 @@ type ReplyKeyboard struct {
 func (rk *ReplyKeyboard) createKeyboard(collection string, chat int) error {
 	var keyboardRow []string
 
-	documents, err := store.DataBase.getDocuments(collection, chat)
+	documents, err := db.getDocuments(collection, chat)
 	if err != nil {
 		return err
 	}
-	defer documents.Close(store.CTX)
+	defer documents.Close(ctx)
 
-	for documents.Next(store.CTX) {
+	for documents.Next(ctx) {
 		var document bson.M
 		err = documents.Decode(&document)
 		if err != nil {
