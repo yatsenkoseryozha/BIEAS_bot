@@ -93,7 +93,7 @@ func main() {
 		for _, update := range bot.GetUpdatesResp.Updates {
 			if update.Message.Text == "/start" {
 				// ---------------------------------------------------------------------------------- handle /start command
-				processing.deleteCommand(update.Message.Chat.ChatId)
+				processing.destroyProcess(update.Message.Chat.ChatId)
 
 				finded, err := db.findAccout(update.Message.Chat.ChatId)
 				if err != nil {
@@ -112,7 +112,7 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						processing.addCommand(update.Message.Chat.ChatId, "/create_bank", Extra{})
+						processing.createProcess(update.Message.Chat.ChatId, "/create_bank", Extra{})
 
 						if err = bot.sendMessage(
 							update.Message.Chat.ChatId,
@@ -125,7 +125,7 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/cancel" {
 				// --------------------------------------------------------------------------------- handle /cancel command
-				processing.deleteCommand(update.Message.Chat.ChatId)
+				processing.destroyProcess(update.Message.Chat.ChatId)
 
 				if err = bot.sendMessage(
 					update.Message.Chat.ChatId,
@@ -136,7 +136,7 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/create_bank" {
 				// ---------------------------------------------------------------------------- handle /create_bank command
-				processing.addCommand(update.Message.Chat.ChatId, update.Message.Text, Extra{})
+				processing.createProcess(update.Message.Chat.ChatId, update.Message.Text, Extra{})
 
 				if err = bot.sendMessage(
 					update.Message.Chat.ChatId,
@@ -147,7 +147,7 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/destroy_bank" {
 				// --------------------------------------------------------------------------- handle /destroy_bank command
-				processing.deleteCommand(update.Message.Chat.ChatId)
+				processing.destroyProcess(update.Message.Chat.ChatId)
 
 				err = bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
@@ -168,7 +168,7 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						processing.addCommand(update.Message.Chat.ChatId, update.Message.Text, Extra{})
+						processing.createProcess(update.Message.Chat.ChatId, update.Message.Text, Extra{})
 
 						if err = bot.sendMessage(
 							update.Message.Chat.ChatId,
@@ -183,7 +183,7 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/income" || update.Message.Text == "/expense" {
 				// ------------------------------------------------------------------- handle /income and /expense commands
-				processing.deleteCommand(update.Message.Chat.ChatId)
+				processing.destroyProcess(update.Message.Chat.ChatId)
 
 				err = bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
@@ -204,7 +204,7 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						processing.addCommand(update.Message.Chat.ChatId, update.Message.Text, Extra{})
+						processing.createProcess(update.Message.Chat.ChatId, update.Message.Text, Extra{})
 
 						var operation string
 						if update.Message.Text == "/income" {
@@ -226,7 +226,7 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == "/get_balance" {
 				// ---------------------------------------------------------------------------- handle /get_balance command
-				processing.deleteCommand(update.Message.Chat.ChatId)
+				processing.destroyProcess(update.Message.Chat.ChatId)
 
 				err = bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 				if err != nil {
@@ -247,7 +247,7 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						processing.addCommand(update.Message.Chat.ChatId, update.Message.Text, Extra{})
+						processing.createProcess(update.Message.Chat.ChatId, update.Message.Text, Extra{})
 
 						if err = bot.sendMessage(
 							update.Message.Chat.ChatId,
@@ -261,9 +261,9 @@ func main() {
 				}
 				// --------------------------------------------------------------------------------------------------------
 			} else {
-				for _, command := range processing.Commands {
-					if command.Chat == update.Message.Chat.ChatId {
-						if command.Command == "/create_bank" {
+				for _, process := range processing.Processes {
+					if process.Chat == update.Message.Chat.ChatId {
+						if process.Command == "/create_bank" {
 							// ------------------------------------------- handle update in /create_bank command processing
 							bank := Bank{
 								Account: update.Message.Chat.ChatId,
@@ -286,7 +286,7 @@ func main() {
 										log.Fatal(err)
 									}
 
-									processing.deleteCommand(update.Message.Chat.ChatId)
+									processing.destroyProcess(update.Message.Chat.ChatId)
 								}
 							} else {
 								if err = bot.sendMessage(
@@ -296,10 +296,10 @@ func main() {
 									log.Fatal(err)
 								}
 
-								processing.deleteCommand(update.Message.Chat.ChatId)
+								processing.destroyProcess(update.Message.Chat.ChatId)
 							}
 							// --------------------------------------------------------------------------------------------
-						} else if command.Command == "/destroy_bank" {
+						} else if process.Command == "/destroy_bank" {
 							// ------------------------------------------ handle update in /destroy_bank command processing
 							bank, err := db.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
@@ -320,7 +320,7 @@ func main() {
 										log.Fatal(err)
 									}
 
-									processing.deleteCommand(update.Message.Chat.ChatId)
+									processing.destroyProcess(update.Message.Chat.ChatId)
 								}
 							} else {
 								err = bank.destroy()
@@ -340,10 +340,10 @@ func main() {
 									}
 								}
 
-								processing.deleteCommand(update.Message.Chat.ChatId)
+								processing.destroyProcess(update.Message.Chat.ChatId)
 							}
 							// --------------------------------------------------------------------------------------------
-						} else if command.Command == "/income" || command.Command == "/expense" {
+						} else if process.Command == "/income" || process.Command == "/expense" {
 							// ------------------------------------ handle update in /income or /expense command processing
 							bank, err := db.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
@@ -363,7 +363,7 @@ func main() {
 										log.Fatal(err)
 									}
 
-									processing.deleteCommand(update.Message.Chat.ChatId)
+									processing.destroyProcess(update.Message.Chat.ChatId)
 								}
 							} else {
 								err = bot.sendMessage(update.Message.Chat.ChatId, "На какую сумму?")
@@ -372,13 +372,13 @@ func main() {
 								}
 
 								var commandToProcessing string
-								if command.Command == "/income" {
+								if process.Command == "/income" {
 									commandToProcessing = "/set_income_amount"
-								} else if command.Command == "/expense" {
+								} else if process.Command == "/expense" {
 									commandToProcessing = "/set_expense_amount"
 								}
 
-								processing.addCommand(
+								processing.createProcess(
 									update.Message.Chat.ChatId,
 									commandToProcessing,
 									Extra{
@@ -387,7 +387,7 @@ func main() {
 								)
 							}
 							// --------------------------------------------------------------------------------------------
-						} else if command.Command == "/set_income_amount" || command.Command == "/set_expense_amount" {
+						} else if process.Command == "/set_income_amount" || process.Command == "/set_expense_amount" {
 							// -------------- handle update in /set_income_amount or /set_expense_amount command processing
 							amount, err := strconv.Atoi(update.Message.Text)
 							if err != nil {
@@ -402,13 +402,13 @@ func main() {
 									Amout:   amount,
 								}
 
-								if command.Command == "/set_income_amount" {
+								if process.Command == "/set_income_amount" {
 									operation.Operation = "income"
-								} else if command.Command == "/set_expense_amount" {
+								} else if process.Command == "/set_expense_amount" {
 									operation.Operation = "expense"
 								}
 
-								err = operation.makeOparetion(&command.Extra.Bank)
+								err = operation.makeOparetion(&process.Extra.Bank)
 								if err != nil {
 									log.Println(err)
 
@@ -420,16 +420,16 @@ func main() {
 									if err = bot.sendMessage(
 										update.Message.Chat.ChatId,
 										"Баланс копилки был успешно изменен! Текущий баланс: "+
-											strconv.Itoa(command.Extra.Bank.Balance)+" руб.",
+											strconv.Itoa(process.Extra.Bank.Balance)+" руб.",
 									); err != nil {
 										log.Fatal(err)
 									}
 								}
 
-								processing.deleteCommand(update.Message.Chat.ChatId)
+								processing.destroyProcess(update.Message.Chat.ChatId)
 							}
 							// --------------------------------------------------------------------------------------------
-						} else if command.Command == "/get_balance" {
+						} else if process.Command == "/get_balance" {
 							// ------------------------------------------- handle update in /get_balance command processing
 							bank, err := db.getBank(update.Message.Chat.ChatId, update.Message.Text)
 							if err != nil {
@@ -449,7 +449,7 @@ func main() {
 										log.Fatal(err)
 									}
 
-									processing.deleteCommand(update.Message.Chat.ChatId)
+									processing.destroyProcess(update.Message.Chat.ChatId)
 								}
 							} else {
 								if err = bot.sendMessage(
@@ -459,7 +459,7 @@ func main() {
 									log.Fatal(err)
 								}
 
-								processing.deleteCommand(update.Message.Chat.ChatId)
+								processing.destroyProcess(update.Message.Chat.ChatId)
 							}
 							// --------------------------------------------------------------------------------------------
 						}

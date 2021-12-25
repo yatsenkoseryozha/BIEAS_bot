@@ -286,10 +286,10 @@ func (rk *ReplyKeyboard) destroyKeyboard() {
 // ---------------------------------------------------------------------------
 // --------------------------------------------------------- PROCESSING MODELS
 type Processing struct {
-	Commands []Command
+	Processes []Process
 }
 
-type Command struct {
+type Process struct {
 	Chat    int
 	Command string
 	Extra   Extra
@@ -300,21 +300,21 @@ type Extra struct {
 	Amount int
 }
 
-func (proc *Processing) addCommand(chat int, command string, extra Extra) {
-	proc.deleteCommand(chat)
+func (processing *Processing) createProcess(chat int, command string, extra Extra) {
+	processing.destroyProcess(chat)
 
-	proc.Commands = append(proc.Commands, Command{
+	processing.Processes = append(processing.Processes, Process{
 		Chat:    chat,
 		Command: command,
 		Extra:   extra,
 	})
 }
 
-func (proc *Processing) deleteCommand(chat int) {
-	for index, command := range proc.Commands {
+func (processing *Processing) destroyProcess(chat int) {
+	for index, command := range processing.Processes {
 		if command.Chat == chat {
-			proc.Commands[index] = proc.Commands[len(proc.Commands)-1]
-			proc.Commands = proc.Commands[:len(proc.Commands)-1]
+			processing.Processes[index] = processing.Processes[len(processing.Processes)-1]
+			processing.Processes = processing.Processes[:len(processing.Processes)-1]
 
 			break
 		}
