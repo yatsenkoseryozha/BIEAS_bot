@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/joho/godotenv"
@@ -16,7 +17,9 @@ var store Store
 
 func init() {
 	// find .env file
-	err := godotenv.Load()
+	ex, _ := os.Executable()
+	exPath := filepath.Dir(ex)
+	err := godotenv.Load(filepath.Join(exPath, ".env"))
 	if err != nil {
 		log.Fatal("No .env file found")
 	}
