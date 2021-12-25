@@ -41,7 +41,7 @@ func (db *DataBase) getBank(chat int, name string) (Bank, error) {
 	var bank Bank
 	db.Collections["banks"].FindOne(store.CTX, bson.M{"account": chat, "name": name}).Decode(&bank)
 	if bank.Name == "" {
-		return bank, errors.New("Копилка с таким названием не найдена. Попробуй снова")
+		return bank, errors.New(BANK_NOT_FOUND)
 	}
 
 	return bank, nil
@@ -79,7 +79,7 @@ func (bank *Bank) create() error {
 	defer documents.Close(store.CTX)
 
 	if documents.RemainingBatchLength() > 0 {
-		return errors.New("Копилка с таким названием уже существует. Попробуй снова")
+		return errors.New(BANK_NAME_IS_EXIST)
 	}
 
 	id, err := gonanoid.New()
@@ -171,6 +171,11 @@ type Bot struct {
 	URI            string
 	GetUpdatesResp GetUpdatesResp
 	ReplyKeyboard  ReplyKeyboard
+	Errors         map[string]Error
+}
+
+type Error struct {
+	Message string
 }
 
 func (bot *Bot) getUpdates(offset int) error {
@@ -205,6 +210,15 @@ func (bot *Bot) sendMessage(chat int, text string) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	return nil
+}
+
+func (bot *Bot) sendError(chat int, errorName string) error {
+	err := bot.sendMessage(chat, bot.Errors[errorName].Message)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
