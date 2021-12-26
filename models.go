@@ -104,9 +104,9 @@ func (bank *Bank) destroy() error {
 }
 
 func (bank *Bank) updateBalance(amount int, operation string) error {
-	if operation == "income" {
+	if operation == "/income" {
 		bank.Balance = bank.Balance + amount
-	} else if operation == "expense" {
+	} else if operation == "/expense" {
 		bank.Balance = bank.Balance - amount
 	}
 
@@ -136,12 +136,12 @@ type Operation struct {
 	Account   int    `json:"account" bson:"account"`
 	Bank      string `json:"bank" bson:"bank"`
 	Operation string `json:"operation" bson:"operation"`
-	Amout     int    `json:"amount" bson:"amount"`
+	Amount    int    `json:"amount" bson:"amount"`
+	Comment   string `json:"comment" bson:"comment"`
 	CreatedAt string `json:"created_at" bson:"created_at"`
 }
 
 func (operation *Operation) makeOparetion(bank *Bank) error {
-	operation.Bank = bank.Id
 	operation.CreatedAt = time.Now().String()
 
 	_, err := db.Collections["operations"].InsertOne(ctx, operation)
@@ -149,7 +149,7 @@ func (operation *Operation) makeOparetion(bank *Bank) error {
 		return err
 	}
 
-	err = bank.updateBalance(operation.Amout, operation.Operation)
+	err = bank.updateBalance(operation.Amount, operation.Operation)
 	if err != nil {
 		return nil
 	}
@@ -296,8 +296,8 @@ type Process struct {
 }
 
 type Extra struct {
-	Bank   Bank
-	Amount int
+	Bank      Bank
+	Operation Operation
 }
 
 func (processing *Processing) createProcess(chat int, command string, extra Extra) {
