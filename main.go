@@ -443,7 +443,7 @@ func main() {
 						// ------------------------------------------- handle update in /create_operation command processing
 						processing.Processes[processIndex].Extra.Operation.Comment = update.Message.Text
 
-						err = processing.Processes[processIndex].Extra.Operation.makeOparetion(
+						err = processing.Processes[processIndex].Extra.Operation.createOparetion(
 							&processing.Processes[processIndex].Extra.Bank)
 						if err != nil {
 							log.Println(err)

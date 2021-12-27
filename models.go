@@ -132,6 +132,7 @@ func (bank *Bank) updateBalance(amount int, operation string) error {
 	return nil
 }
 
+// Operation Models ----------------------------------------------------------
 type Operation struct {
 	Account   int    `json:"account" bson:"account"`
 	Bank      string `json:"bank" bson:"bank"`
@@ -141,7 +142,7 @@ type Operation struct {
 	CreatedAt string `json:"created_at" bson:"created_at"`
 }
 
-func (operation *Operation) makeOparetion(bank *Bank) error {
+func (operation *Operation) createOparetion(bank *Bank) error {
 	operation.CreatedAt = time.Now().String()
 
 	_, err := db.Collections["operations"].InsertOne(ctx, operation)
@@ -155,6 +156,26 @@ func (operation *Operation) makeOparetion(bank *Bank) error {
 	}
 
 	return nil
+}
+
+// Debt Models ---------------------------------------------------------------
+type Debt struct {
+	Account   int    `json:"account" bson:"account"`
+	Amount    int    `json:"amount" bson:"amount"`
+	Comment   string `json:"comment" bson:"comment"`
+	CreatedAt string `json:"created_at" bson:"created_at"`
+}
+
+func (debt *Debt) createDebt() error {
+	debt.CreatedAt = time.Now().String()
+
+	_, err := db.Collections["debts"].InsertOne(ctx, debt)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
 }
 
 // ---------------------------------------------------------------------------
