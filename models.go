@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -161,12 +162,16 @@ func (operation *Operation) createOparetion(bank *Bank) error {
 // Debt Models ---------------------------------------------------------------
 type Debt struct {
 	Account   int    `json:"account" bson:"account"`
+	Whose     string `json:"whose" bson:"whose"`
 	Amount    int    `json:"amount" bson:"amount"`
 	Comment   string `json:"comment" bson:"comment"`
 	CreatedAt string `json:"created_at" bson:"created_at"`
 }
 
 func (debt *Debt) createDebt() error {
+	fmt.Println(debt)
+	fmt.Scan()
+
 	debt.CreatedAt = time.Now().String()
 
 	_, err := db.Collections["debts"].InsertOne(ctx, debt)
@@ -269,24 +274,28 @@ type ReplyKeyboard struct {
 func (rk *ReplyKeyboard) createKeyboard(collection string, chat int) error {
 	var keyboardRow []string
 
-	documents, err := db.getDocuments(collection, chat)
-	if err != nil {
-		return err
-	}
-	defer documents.Close(ctx)
-
-	for documents.Next(ctx) {
-		var document bson.M
-		err = documents.Decode(&document)
+	if collection == "debt_variants" {
+		keyboardRow = append(keyboardRow, []string{"Мне должны", "Я должен"}...)
+	} else {
+		documents, err := db.getDocuments(collection, chat)
 		if err != nil {
 			return err
 		}
+		defer documents.Close(ctx)
 
-		keyboardRow = append(keyboardRow, document["name"].(string))
+		for documents.Next(ctx) {
+			var document bson.M
+			err = documents.Decode(&document)
+			if err != nil {
+				return err
+			}
 
-		if len(keyboardRow) >= 3 {
-			rk.Keyboard = append(rk.Keyboard, keyboardRow)
-			keyboardRow = []string{}
+			keyboardRow = append(keyboardRow, document["name"].(string))
+
+			if len(keyboardRow) >= 3 {
+				rk.Keyboard = append(rk.Keyboard, keyboardRow)
+				keyboardRow = []string{}
+			}
 		}
 	}
 
@@ -319,6 +328,7 @@ type Process struct {
 type Extra struct {
 	Bank      Bank
 	Operation Operation
+	Debt      Debt
 }
 
 func (processing *Processing) createProcess(chat int, command string, extra Extra) {
