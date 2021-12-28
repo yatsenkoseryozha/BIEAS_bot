@@ -438,7 +438,7 @@ func main() {
 							Extra{
 								Operation: Operation{
 									Account:   process.Extra.Operation.Account,
-									Bank:      process.Extra.Bank.Id,
+									Bank:      process.Extra.Operation.Bank,
 									Operation: process.Extra.Operation.Operation,
 									Amount:    amount,
 								},
@@ -454,13 +454,15 @@ func main() {
 						Extra{
 							Operation: Operation{
 								Account:   process.Extra.Operation.Account,
-								Bank:      process.Extra.Bank.Id,
+								Bank:      process.Extra.Operation.Bank,
 								Operation: process.Extra.Operation.Operation,
 								Amount:    process.Extra.Operation.Amount,
 								Comment:   update.Message.Text,
 							},
 						},
 					)
+
+					continue
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command == "/create_operation" {
 					// ------------------------------------------- handle update in /create_operation command processing
@@ -487,26 +489,24 @@ func main() {
 							if err != nil {
 								log.Fatal(err)
 							}
-						}
+						} else {
+							var balance int
 
-						var balance int
+							if process.Extra.Operation.Operation == "/income" {
+								balance = bank.Balance + process.Extra.Operation.Amount
+							} else if process.Extra.Operation.Operation == "/expense" {
+								balance = bank.Balance - process.Extra.Operation.Amount
+							}
 
-						if process.Extra.Operation.Operation == "/income" {
-							balance = bank.Balance + process.Extra.Operation.Amount
-						} else if process.Extra.Operation.Operation == "/expense" {
-							balance = bank.Balance - process.Extra.Operation.Amount
-						}
+							bank.update(bson.M{"balance": balance})
 
-						bank.update(
-							bson.M{"balance": balance},
-						)
-
-						if err = bot.sendMessage(
-							update.Message.Chat.ChatId,
-							"Баланс копилки был успешно изменен! Текущий баланс: "+
-								strconv.Itoa(process.Extra.Bank.Balance)+" руб.",
-						); err != nil {
-							log.Fatal(err)
+							if err = bot.sendMessage(
+								update.Message.Chat.ChatId,
+								"Баланс копилки был успешно изменен! Текущий баланс: "+
+									strconv.Itoa(bank.Balance)+" руб.",
+							); err != nil {
+								log.Fatal(err)
+							}
 						}
 					}
 
