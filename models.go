@@ -135,6 +135,7 @@ func (bank *Bank) updateBalance(amount int, operation string) error {
 
 // Operation Models ----------------------------------------------------------
 type Operation struct {
+	Id        string `json:"id" bson:"id"`
 	Account   int    `json:"account" bson:"account"`
 	Bank      string `json:"bank" bson:"bank"`
 	Operation string `json:"operation" bson:"operation"`
@@ -161,6 +162,7 @@ func (operation *Operation) createOparetion(bank *Bank) error {
 
 // Debt Models ---------------------------------------------------------------
 type Debt struct {
+	Id        string `json:"id" bson:"id"`
 	Account   int    `json:"account" bson:"account"`
 	Whose     string `json:"whose" bson:"whose"`
 	Amount    int    `json:"amount" bson:"amount"`
