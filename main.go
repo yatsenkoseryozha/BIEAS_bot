@@ -152,8 +152,9 @@ func main() {
 					log.Fatal(err)
 				}
 				// --------------------------------------------------------------------------------------------------------
-			} else if update.Message.Text == "/destroy_bank" {
-				// --------------------------------------------------------------------------- handle /destroy_bank command
+			} else if update.Message.Text == "/destroy_bank" || update.Message.Text == "/get_balance" ||
+				update.Message.Text == "/income" || update.Message.Text == "/expense" {
+				// ------------------------------------ handle /destroy_bank or /get_balance or /income or /expense command
 				processing.destroyProcess(update.Message.Chat.ChatId)
 
 				err = bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
@@ -177,88 +178,20 @@ func main() {
 					} else {
 						processing.createProcess(update.Message.Chat.ChatId, update.Message.Text, Extra{})
 
-						if err = bot.sendMessage(
-							update.Message.Chat.ChatId,
-							"Какую копилку ты хочешь удалить? Напиши /cancel, если передумал",
-						); err != nil {
-							log.Fatal(err)
-						}
+						var message string
 
-						bot.ReplyKeyboard.destroyKeyboard()
-					}
-				}
-				// --------------------------------------------------------------------------------------------------------
-			} else if update.Message.Text == "/income" || update.Message.Text == "/expense" {
-				// ------------------------------------------------------------------- handle /income and /expense commands
-				processing.destroyProcess(update.Message.Chat.ChatId)
-
-				err = bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
-				if err != nil {
-					log.Println(err)
-
-					bot.ReplyKeyboard.destroyKeyboard()
-
-					err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-					if err != nil {
-						log.Fatal(err)
-					}
-				} else {
-					if len(bot.ReplyKeyboard.Keyboard) == 0 {
-						bot.ReplyKeyboard.destroyKeyboard()
-
-						err = bot.sendError(update.Message.Chat.ChatId, NO_BANKS)
-						if err != nil {
-							log.Fatal(err)
-						}
-					} else {
-						processing.createProcess(update.Message.Chat.ChatId, update.Message.Text, Extra{})
-
-						var operation string
-						if update.Message.Text == "/income" {
-							operation = "увеличим"
-						} else if update.Message.Text == "/expense" {
-							operation = "уменьшим"
+						if update.Message.Text == "/destroy_bank" {
+							message = "Какую копилку ты хочешь удалить?"
+						} else if update.Message.Text == "/get_balance" {
+							message = "Баланс какой копилки ты хочешь узнать?"
+						} else if update.Message.Text == "/income" ||
+							update.Message.Text == "/expense" {
+							message = "Баланс какой копилки будем изменять?"
 						}
 
 						if err = bot.sendMessage(
 							update.Message.Chat.ChatId,
-							"Баланс какой копилки "+operation+"? Напиши /cancel, если передумал",
-						); err != nil {
-							log.Fatal(err)
-						}
-
-						bot.ReplyKeyboard.destroyKeyboard()
-					}
-				}
-				// --------------------------------------------------------------------------------------------------------
-			} else if update.Message.Text == "/get_balance" {
-				// ---------------------------------------------------------------------------- handle /get_balance command
-				processing.destroyProcess(update.Message.Chat.ChatId)
-
-				err = bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
-				if err != nil {
-					log.Println(err)
-
-					bot.ReplyKeyboard.destroyKeyboard()
-
-					err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-					if err != nil {
-						log.Fatal(err)
-					}
-				} else {
-					if len(bot.ReplyKeyboard.Keyboard) == 0 {
-						bot.ReplyKeyboard.destroyKeyboard()
-
-						err = bot.sendError(update.Message.Chat.ChatId, NO_BANKS)
-						if err != nil {
-							log.Fatal(err)
-						}
-					} else {
-						processing.createProcess(update.Message.Chat.ChatId, update.Message.Text, Extra{})
-
-						if err = bot.sendMessage(
-							update.Message.Chat.ChatId,
-							"Баланс какой копилки ты хочешь узнать? Напиши /cancel, если передумал",
+							message+" Напиши /cancel, если передумал",
 						); err != nil {
 							log.Fatal(err)
 						}
@@ -296,9 +229,15 @@ func main() {
 				}
 				// --------------------------------------------------------------------------------------------------------
 			} else {
-				processIndex := processing.findProcess(update.Message.Chat.ChatId)
+				var process Process
 
-				if processIndex == -1 {
+				for _, proc := range processing.Processes {
+					if proc.Chat == update.Message.Chat.ChatId {
+						process = proc
+					}
+				}
+
+				if process.Command == "" {
 					// -------------------------------------------------------------------------- handle unexpected message
 					if err = bot.sendMessage(
 						update.Message.Chat.ChatId,
@@ -312,67 +251,68 @@ func main() {
 						log.Fatal(err)
 					}
 					// -----------------------------------------------------------------------------------------------------
-				} else {
-					if processing.Processes[processIndex].Command == "/create_bank" {
-						// ------------------------------------------------ handle update in /create_bank command processing
-						bank := Bank{
-							Account: update.Message.Chat.ChatId,
-							Name:    update.Message.Text,
-							Balance: 0,
-						}
+				} else if process.Command == "/create_bank" {
+					// ------------------------------------------------ handle update in /create_bank command processing
+					bank := Bank{
+						Account: update.Message.Chat.ChatId,
+						Name:    update.Message.Text,
+						Balance: 0,
+					}
 
-						err = bank.create()
-						if err != nil {
-							log.Println(err)
+					err = bank.create()
+					if err != nil {
+						log.Println(err)
 
-							if err.Error() == BANK_NAME_IS_EXIST {
-								err = bot.sendError(update.Message.Chat.ChatId, BANK_NAME_IS_EXIST)
-								if err != nil {
-									log.Fatal(err)
-								}
-							} else {
-								err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-								if err != nil {
-									log.Fatal(err)
-								}
-
-								processing.destroyProcess(update.Message.Chat.ChatId)
+						if err.Error() == BANK_NAME_IS_EXIST {
+							err = bot.sendError(update.Message.Chat.ChatId, BANK_NAME_IS_EXIST)
+							if err != nil {
+								log.Fatal(err)
 							}
 						} else {
-							if err = bot.sendMessage(
-								update.Message.Chat.ChatId,
-								"Копилка успешно создана!",
-							); err != nil {
+							err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+							if err != nil {
 								log.Fatal(err)
 							}
 
 							processing.destroyProcess(update.Message.Chat.ChatId)
 						}
-						// -------------------------------------------------------------------------------------------------
-					} else if processing.Processes[processIndex].Command == "/destroy_bank" {
-						// ----------------------------------------------- handle update in /destroy_bank command processing
-						bank, err := db.getBank(update.Message.Chat.ChatId, update.Message.Text)
-						if err != nil {
-							log.Println(err)
+					} else {
+						if err = bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Копилка успешно создана!",
+						); err != nil {
+							log.Fatal(err)
+						}
 
-							if err.Error() == BANK_NOT_FOUND {
-								bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
+						processing.destroyProcess(update.Message.Chat.ChatId)
+					}
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == "/destroy_bank" || process.Command == "/get_balance" ||
+					process.Command == "/income" || process.Command == "/expense" {
+					// -------- handle update in /destroy_bank or /get_balance or /income or /expense command processing
+					bank, err := db.getBank(update.Message.Chat.ChatId, update.Message.Text)
+					if err != nil {
+						log.Println(err)
 
-								err = bot.sendError(update.Message.Chat.ChatId, BANK_NOT_FOUND)
-								if err != nil {
-									log.Fatal(err)
-								}
+						if err.Error() == BANK_NOT_FOUND {
+							bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 
-								bot.ReplyKeyboard.destroyKeyboard()
-							} else {
-								err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-								if err != nil {
-									log.Fatal(err)
-								}
-
-								processing.destroyProcess(update.Message.Chat.ChatId)
+							err = bot.sendError(update.Message.Chat.ChatId, BANK_NOT_FOUND)
+							if err != nil {
+								log.Fatal(err)
 							}
+
+							bot.ReplyKeyboard.destroyKeyboard()
 						} else {
+							err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							processing.destroyProcess(update.Message.Chat.ChatId)
+						}
+					} else {
+						if process.Command == "/destroy_bank" {
 							err = bank.destroy()
 							if err != nil {
 								log.Println(err)
@@ -392,35 +332,23 @@ func main() {
 
 							processing.destroyProcess(update.Message.Chat.ChatId)
 						}
-						// -------------------------------------------------------------------------------------------------
-					} else if processing.Processes[processIndex].Command == "/income" ||
-						processing.Processes[processIndex].Command == "/expense" {
-						// ----------------------------------------- handle update in /income or /expense command processing
-						bank, err := db.getBank(update.Message.Chat.ChatId, update.Message.Text)
-						if err != nil {
-							log.Println(err)
-							if err.Error() == BANK_NOT_FOUND {
-								bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
 
-								err = bot.sendError(update.Message.Chat.ChatId, BANK_NOT_FOUND)
-								if err != nil {
-									log.Fatal(err)
-								}
-
-								bot.ReplyKeyboard.destroyKeyboard()
-							} else {
-								err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-								if err != nil {
-									log.Fatal(err)
-								}
-
-								processing.destroyProcess(update.Message.Chat.ChatId)
+						if process.Command == "/get_balance" {
+							if err = bot.sendMessage(
+								update.Message.Chat.ChatId,
+								"Баланс копилки "+bank.Name+" составляет "+strconv.Itoa(bank.Balance)+" руб.",
+							); err != nil {
+								log.Fatal(err)
 							}
-						} else {
+
+							processing.destroyProcess(update.Message.Chat.ChatId)
+						}
+
+						if process.Command == "/income" || process.Command == "/expense" {
 							operation := Operation{
 								Account:   update.Message.Chat.ChatId,
 								Bank:      bank.Id,
-								Operation: processing.Processes[processIndex].Command,
+								Operation: process.Command,
 							}
 
 							err = bot.sendMessage(update.Message.Chat.ChatId, "На какую сумму?")
@@ -437,177 +365,144 @@ func main() {
 								},
 							)
 						}
-						// -------------------------------------------------------------------------------------------------
-					} else if processing.Processes[processIndex].Command == "/set_operation_amount" {
-						// --------------------------------------- handle update in /set_operation_amount command processing
-						amount, err := strconv.Atoi(update.Message.Text)
+					}
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == "/set_operation_amount" {
+					// --------------------------------------- handle update in /set_operation_amount command processing
+					amount, err := strconv.Atoi(update.Message.Text)
+					if err != nil {
+						log.Println(err)
+
+						err = bot.sendError(update.Message.Chat.ChatId, INCORRECT_VALUE)
 						if err != nil {
-							log.Println(err)
-
-							err = bot.sendError(update.Message.Chat.ChatId, INCORRECT_VALUE)
-							if err != nil {
-								log.Fatal(err)
-							}
-						} else {
-							processing.Processes[processIndex].Extra.Operation.Amount = amount
-
-							if err = bot.sendMessage(
-								update.Message.Chat.ChatId,
-								"Добавь комментарий к операции",
-							); err != nil {
-								log.Fatal(err)
-							}
-
-							processing.createProcess(
-								update.Message.Chat.ChatId,
-								"/create_operation",
-								Extra{
-									Bank:      processing.Processes[processIndex].Extra.Bank,
-									Operation: processing.Processes[processIndex].Extra.Operation,
-								},
-							)
+							log.Fatal(err)
 						}
-						// -------------------------------------------------------------------------------------------------
-					} else if processing.Processes[processIndex].Command == "/create_operation" {
-						// ------------------------------------------- handle update in /create_operation command processing
-						processing.Processes[processIndex].Extra.Operation.Comment = update.Message.Text
-
-						err = processing.Processes[processIndex].Extra.Operation.createOparetion(
-							&processing.Processes[processIndex].Extra.Bank)
-						if err != nil {
-							log.Println(err)
-
-							err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-							if err != nil {
-								log.Fatal(err)
-							}
-						} else {
-							if err = bot.sendMessage(
-								update.Message.Chat.ChatId,
-								"Баланс копилки был успешно изменен! Текущий баланс: "+
-									strconv.Itoa(processing.Processes[processIndex].Extra.Bank.Balance)+" руб.",
-							); err != nil {
-								log.Fatal(err)
-							}
-						}
-
-						processing.destroyProcess(update.Message.Chat.ChatId)
-						// -------------------------------------------------------------------------------------------------
-					} else if processing.Processes[processIndex].Command == "/get_balance" {
-						// ------------------------------------------------ handle update in /get_balance command processing
-						bank, err := db.getBank(update.Message.Chat.ChatId, update.Message.Text)
-						if err != nil {
-							log.Println(err)
-							if err.Error() == BANK_NOT_FOUND {
-								bot.ReplyKeyboard.createKeyboard("banks", update.Message.Chat.ChatId)
-
-								err = bot.sendError(update.Message.Chat.ChatId, BANK_NOT_FOUND)
-								if err != nil {
-									log.Fatal(err)
-								}
-
-								bot.ReplyKeyboard.destroyKeyboard()
-							} else {
-								err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-								if err != nil {
-									log.Fatal(err)
-								}
-
-								processing.destroyProcess(update.Message.Chat.ChatId)
-							}
-						} else {
-							if err = bot.sendMessage(
-								update.Message.Chat.ChatId,
-								"Баланс копилки "+bank.Name+" составляет "+strconv.Itoa(bank.Balance)+" руб.",
-							); err != nil {
-								log.Fatal(err)
-							}
-
-							processing.destroyProcess(update.Message.Chat.ChatId)
-						}
-						// -------------------------------------------------------------------------------------------------
-					} else if processing.Processes[processIndex].Command == "/create_debt" {
-						// ------------------------------------------------ handle update in /create_debt command processing
-						debt := Debt{
-							Account: update.Message.Chat.ChatId,
-							Whose:   update.Message.Text,
-						}
+					} else {
+						process.Extra.Operation.Amount = amount
 
 						if err = bot.sendMessage(
 							update.Message.Chat.ChatId,
-							"Какую сумму?",
+							"Добавь комментарий к операции",
 						); err != nil {
 							log.Fatal(err)
 						}
 
 						processing.createProcess(
 							update.Message.Chat.ChatId,
-							"/set_debt_amount",
+							"/set_operation_comment",
 							Extra{
-								Debt: debt,
+								Bank:      process.Extra.Bank,
+								Operation: process.Extra.Operation,
 							},
 						)
-						// -------------------------------------------------------------------------------------------------
-					} else if processing.Processes[processIndex].Command == "/set_debt_amount" {
-						// -------------------------------------------- handle update in /set_debt_amount command processing
-						amount, err := strconv.Atoi(update.Message.Text)
-						if err != nil {
-							log.Println(err)
-
-							err = bot.sendError(update.Message.Chat.ChatId, INCORRECT_VALUE)
-							if err != nil {
-								log.Fatal(err)
-							}
-						} else {
-							processing.Processes[processIndex].Extra.Debt.Amount = amount
-
-							if err = bot.sendMessage(
-								update.Message.Chat.ChatId,
-								"Добавь комментарий",
-							); err != nil {
-								log.Fatal(err)
-							}
-
-							processing.createProcess(
-								update.Message.Chat.ChatId,
-								"/set_debt_comment",
-								Extra{
-									Debt: processing.Processes[processIndex].Extra.Debt,
-								},
-							)
-						}
-						// -------------------------------------------------------------------------------------------------
-					} else if processing.Processes[processIndex].Command == "/set_debt_comment" {
-						// ------------------------------------------- handle update in /set_debt_comment command processing
-						processing.Processes[processIndex].Extra.Debt.Comment = update.Message.Text
-
-						err = processing.Processes[processIndex].Extra.Debt.createDebt()
-						if err != nil {
-							log.Println(err)
-
-							err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-							if err != nil {
-								log.Fatal(err)
-							}
-						} else {
-							if err = bot.sendMessage(
-								update.Message.Chat.ChatId,
-								"Готово!",
-							); err != nil {
-								log.Fatal(err)
-							}
-
-							if err = bot.sendMessage(
-								update.Message.Chat.ChatId,
-								"Я буду переодически напоминать тебе о нём",
-							); err != nil {
-								log.Fatal(err)
-							}
-						}
-
-						processing.destroyProcess(update.Message.Chat.ChatId)
-						// -------------------------------------------------------------------------------------------------
 					}
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == "/set_operation_comment" {
+					// -------------------------------------- handle update in /set_operation_comment command processing
+					process.Extra.Operation.Comment = update.Message.Text
+
+					err = process.Extra.Operation.createOparetion(
+						&process.Extra.Bank)
+					if err != nil {
+						log.Println(err)
+
+						err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+						if err != nil {
+							log.Fatal(err)
+						}
+					} else {
+						if err = bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Баланс копилки был успешно изменен! Текущий баланс: "+
+								strconv.Itoa(process.Extra.Bank.Balance)+" руб.",
+						); err != nil {
+							log.Fatal(err)
+						}
+					}
+
+					processing.destroyProcess(update.Message.Chat.ChatId)
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == "/create_debt" {
+					// ------------------------------------------------ handle update in /create_debt command processing
+					debt := Debt{
+						Account: update.Message.Chat.ChatId,
+						Whose:   update.Message.Text,
+					}
+
+					if err = bot.sendMessage(
+						update.Message.Chat.ChatId,
+						"Какую сумму?",
+					); err != nil {
+						log.Fatal(err)
+					}
+
+					processing.createProcess(
+						update.Message.Chat.ChatId,
+						"/set_debt_amount",
+						Extra{
+							Debt: debt,
+						},
+					)
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == "/set_debt_amount" {
+					// -------------------------------------------- handle update in /set_debt_amount command processing
+					amount, err := strconv.Atoi(update.Message.Text)
+					if err != nil {
+						log.Println(err)
+
+						err = bot.sendError(update.Message.Chat.ChatId, INCORRECT_VALUE)
+						if err != nil {
+							log.Fatal(err)
+						}
+					} else {
+						process.Extra.Debt.Amount = amount
+
+						if err = bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Добавь комментарий",
+						); err != nil {
+							log.Fatal(err)
+						}
+
+						processing.createProcess(
+							update.Message.Chat.ChatId,
+							"/set_debt_comment",
+							Extra{
+								Debt: process.Extra.Debt,
+							},
+						)
+					}
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == "/set_debt_comment" {
+					// ------------------------------------------- handle update in /set_debt_comment command processing
+					process.Extra.Debt.Comment = update.Message.Text
+
+					err = process.Extra.Debt.createDebt()
+					if err != nil {
+						log.Println(err)
+
+						err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
+						if err != nil {
+							log.Fatal(err)
+						}
+					} else {
+						if err = bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Готово!",
+						); err != nil {
+							log.Fatal(err)
+						}
+
+						if err = bot.sendMessage(
+							update.Message.Chat.ChatId,
+							"Я буду переодически напоминать тебе о нём",
+						); err != nil {
+							log.Fatal(err)
+						}
+					}
+
+					processing.destroyProcess(update.Message.Chat.ChatId)
+					// -------------------------------------------------------------------------------------------------
 				}
 			}
 
