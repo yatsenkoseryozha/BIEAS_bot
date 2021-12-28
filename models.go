@@ -84,8 +84,13 @@ func (bank *Bank) update(update bson.M) error {
 	options := &options.FindOneAndUpdateOptions{ReturnDocument: &after}
 	err := db.Collections["banks"].FindOneAndUpdate(
 		ctx,
-		bson.M{"id": bank.Id},
-		update,
+		bson.M{
+			"account": bank.Account,
+			"id":      bank.Id,
+		},
+		bson.M{
+			"$set": update,
+		},
 		options,
 	).Decode(&bank)
 	if err != nil {
