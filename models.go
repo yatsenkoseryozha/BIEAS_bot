@@ -2,8 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -21,8 +19,8 @@ type DataBase struct {
 	Collections map[string]*mongo.Collection
 }
 
-func (db *DataBase) getDocuments(collection string, chat int) (*mongo.Cursor, error) {
-	documents, err := db.Collections[collection].Find(ctx, bson.M{"account": chat})
+func (db *DataBase) getDocuments(collection string, filter bson.M) (*mongo.Cursor, error) {
+	documents, err := db.Collections[collection].Find(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -30,28 +28,8 @@ func (db *DataBase) getDocuments(collection string, chat int) (*mongo.Cursor, er
 	return documents, nil
 }
 
-func (db *DataBase) getBank(chat int, name string) (Bank, error) {
-	var bank Bank
-	db.Collections["banks"].FindOne(ctx, bson.M{"account": chat, "name": name}).Decode(&bank)
-	if bank.Name == "" {
-		return bank, errors.New(BANK_NOT_FOUND)
-	}
-
-	return bank, nil
-}
-
-func (db *DataBase) findAccout(chat int) (bool, error) {
-	documents, err := db.getDocuments("banks", chat)
-	if err != nil {
-		return false, err
-	}
-	defer documents.Close(ctx)
-
-	if documents.RemainingBatchLength() > 0 {
-		return true, nil
-	} else {
-		return false, nil
-	}
+func (db *DataBase) getDocument(collection string, filter bson.M) *mongo.SingleResult {
+	return db.Collections[collection].FindOne(ctx, filter)
 }
 
 // Bank Models ---------------------------------------------------------------
@@ -65,22 +43,14 @@ type Bank struct {
 }
 
 func (bank *Bank) create() error {
-	documents, err := db.Collections["banks"].Find(
-		ctx,
-		bson.M{"account": bank.Account, "name": bank.Name},
-	)
-	defer documents.Close(ctx)
-
-	if documents.RemainingBatchLength() > 0 {
-		return errors.New(BANK_NAME_IS_EXIST)
-	}
-
 	id, err := gonanoid.New()
 	if err != nil {
 		return err
 	}
 
 	bank.Id = id
+
+	bank.Balance = 0
 
 	bank.CreatedAt = time.Now().String()
 	bank.UpdatedAt = time.Now().String()
@@ -96,7 +66,10 @@ func (bank *Bank) create() error {
 func (bank *Bank) destroy() error {
 	if _, err := db.Collections["banks"].DeleteOne(
 		ctx,
-		bson.M{"account": bank.Account, "name": bank.Name},
+		bson.M{
+			"account": bank.Account,
+			"id":      bank.Id,
+		},
 	); err != nil {
 		return err
 	}
@@ -104,13 +77,7 @@ func (bank *Bank) destroy() error {
 	return nil
 }
 
-func (bank *Bank) updateBalance(amount int, operation string) error {
-	if operation == "/income" {
-		bank.Balance = bank.Balance + amount
-	} else if operation == "/expense" {
-		bank.Balance = bank.Balance - amount
-	}
-
+func (bank *Bank) update(update bson.M) error {
 	bank.UpdatedAt = time.Now().String()
 
 	after := options.After
@@ -118,12 +85,7 @@ func (bank *Bank) updateBalance(amount int, operation string) error {
 	err := db.Collections["banks"].FindOneAndUpdate(
 		ctx,
 		bson.M{"id": bank.Id},
-		bson.M{
-			"$set": bson.M{
-				"balance":    bank.Balance,
-				"updated_at": bank.UpdatedAt,
-			},
-		},
+		update,
 		options,
 	).Decode(&bank)
 	if err != nil {
@@ -144,46 +106,51 @@ type Operation struct {
 	CreatedAt string `json:"created_at" bson:"created_at"`
 }
 
-func (operation *Operation) createOparetion(bank *Bank) error {
-	operation.CreatedAt = time.Now().String()
-
-	_, err := db.Collections["operations"].InsertOne(ctx, operation)
+func (operation *Operation) create() error {
+	id, err := gonanoid.New()
 	if err != nil {
 		return err
 	}
 
-	err = bank.updateBalance(operation.Amount, operation.Operation)
+	operation.Id = id
+
+	operation.CreatedAt = time.Now().String()
+
+	_, err = db.Collections["operations"].InsertOne(ctx, operation)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	return nil
 }
 
 // Debt Models ---------------------------------------------------------------
-type Debt struct {
-	Id        string `json:"id" bson:"id"`
-	Account   int    `json:"account" bson:"account"`
-	Whose     string `json:"whose" bson:"whose"`
-	Amount    int    `json:"amount" bson:"amount"`
-	Comment   string `json:"comment" bson:"comment"`
-	CreatedAt string `json:"created_at" bson:"created_at"`
-}
+// type Debt struct {
+// 	Id        string `json:"id" bson:"id"`
+// 	Account   int    `json:"account" bson:"account"`
+// 	Name      string `json:"whose" bson:"whose"`
+// 	Amount    int    `json:"amount" bson:"amount"`
+// 	Comment   string `json:"comment" bson:"comment"`
+// 	CreatedAt string `json:"created_at" bson:"created_at"`
+// }
 
-func (debt *Debt) createDebt() error {
-	fmt.Println(debt)
-	fmt.Scan()
+// func (debt *Debt) create() error {
+// 	id, err := gonanoid.New()
+// 	if err != nil {
+// 		return err
+// 	}
 
-	debt.CreatedAt = time.Now().String()
+// 	debt.Id = id
 
-	_, err := db.Collections["debts"].InsertOne(ctx, debt)
-	if err != nil {
-		return err
-	}
+// 	debt.CreatedAt = time.Now().String()
 
-	return nil
+// 	_, err = db.Collections["debts"].InsertOne(ctx, debt)
+// 	if err != nil {
+// 		return err
+// 	}
 
-}
+// 	return nil
+// }
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------- BOT MODELS
@@ -191,7 +158,7 @@ type Bot struct {
 	URI            string
 	GetUpdatesResp GetUpdatesResp
 	ReplyKeyboard  ReplyKeyboard
-	Errors         map[string]Error
+	Errors         map[string]string
 }
 
 func (bot *Bot) getUpdates(offset int) error {
@@ -230,19 +197,6 @@ func (bot *Bot) sendMessage(chat int, text string) error {
 	return nil
 }
 
-type Error struct {
-	Message string
-}
-
-func (bot *Bot) sendError(chat int, errorName string) error {
-	err := bot.sendMessage(chat, bot.Errors[errorName].Message)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Updates Models ------------------------------------------------------------
 type GetUpdatesResp struct {
 	Ok      bool     `json:"ok"`
@@ -273,31 +227,15 @@ type ReplyKeyboard struct {
 	RemoveKeyboard bool       `json:"remove_keyboard"`
 }
 
-func (rk *ReplyKeyboard) createKeyboard(collection string, chat int) error {
+func (rk *ReplyKeyboard) create(buttons []string) {
 	var keyboardRow []string
 
-	if collection == "debt_variants" {
-		keyboardRow = append(keyboardRow, []string{"Мне должны", "Я должен"}...)
-	} else {
-		documents, err := db.getDocuments(collection, chat)
-		if err != nil {
-			return err
-		}
-		defer documents.Close(ctx)
+	for _, button := range buttons {
+		keyboardRow = append(keyboardRow, button)
 
-		for documents.Next(ctx) {
-			var document bson.M
-			err = documents.Decode(&document)
-			if err != nil {
-				return err
-			}
-
-			keyboardRow = append(keyboardRow, document["name"].(string))
-
-			if len(keyboardRow) >= 3 {
-				rk.Keyboard = append(rk.Keyboard, keyboardRow)
-				keyboardRow = []string{}
-			}
+		if len(keyboardRow) >= 3 {
+			rk.Keyboard = append(rk.Keyboard, keyboardRow)
+			keyboardRow = []string{}
 		}
 	}
 
@@ -306,11 +244,9 @@ func (rk *ReplyKeyboard) createKeyboard(collection string, chat int) error {
 	}
 
 	rk.RemoveKeyboard = false
-
-	return nil
 }
 
-func (rk *ReplyKeyboard) destroyKeyboard() {
+func (rk *ReplyKeyboard) destroy() {
 	rk.Keyboard = [][]string{}
 	rk.RemoveKeyboard = true
 }
@@ -330,11 +266,12 @@ type Process struct {
 type Extra struct {
 	Bank      Bank
 	Operation Operation
-	Debt      Debt
+	// Debt      Debt
+	Keyboard []string
 }
 
-func (processing *Processing) createProcess(chat int, command string, extra Extra) {
-	processing.destroyProcess(chat)
+func (processing *Processing) create(chat int, command string, extra Extra) {
+	processing.destroy(chat)
 
 	processing.Processes = append(processing.Processes, Process{
 		Chat:    chat,
@@ -343,7 +280,7 @@ func (processing *Processing) createProcess(chat int, command string, extra Extr
 	})
 }
 
-func (processing *Processing) destroyProcess(chat int) {
+func (processing *Processing) destroy(chat int) {
 	for index, command := range processing.Processes {
 		if command.Chat == chat {
 			processing.Processes[index] = processing.Processes[len(processing.Processes)-1]
@@ -352,15 +289,6 @@ func (processing *Processing) destroyProcess(chat int) {
 			break
 		}
 	}
-}
-
-func (processing *Processing) findProcess(chat int) int {
-	for index, process := range processing.Processes {
-		if process.Chat == chat {
-			return index
-		}
-	}
-	return -1
 }
 
 // ---------------------------------------------------------------------------
