@@ -129,34 +129,6 @@ func (operation *Operation) create() error {
 	return nil
 }
 
-// Debt Models ---------------------------------------------------------------
-// type Debt struct {
-// 	Id        string `json:"id" bson:"id"`
-// 	Account   int    `json:"account" bson:"account"`
-// 	Name      string `json:"whose" bson:"whose"`
-// 	Amount    int    `json:"amount" bson:"amount"`
-// 	Comment   string `json:"comment" bson:"comment"`
-// 	CreatedAt string `json:"created_at" bson:"created_at"`
-// }
-
-// func (debt *Debt) create() error {
-// 	id, err := gonanoid.New()
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	debt.Id = id
-
-// 	debt.CreatedAt = time.Now().String()
-
-// 	_, err = db.Collections["debts"].InsertOne(ctx, debt)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------- BOT MODELS
 type Bot struct {

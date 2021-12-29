@@ -51,7 +51,6 @@ func init() {
 	db.Collections = make(map[string]*mongo.Collection)
 	db.Collections["banks"] = client.Database("general").Collection("banks")
 	db.Collections["operations"] = client.Database("general").Collection("operations")
-	// db.Collections["debts"] = client.Database("general").Collection("debts")
 
 	// init Bot
 	botUrl := "https://api.telegram.org/bot"
@@ -227,34 +226,6 @@ func main() {
 						)
 					}
 				}
-				// --------------------------------------------------------------------------------------------------------
-			} else if update.Message.Text == "/create_debt" {
-				// ---------------------------------------------------------------------------- handle /create_debt command
-				// processing.destroy(update.Message.Chat.ChatId)
-
-				// err = bot.ReplyKeyboard.create("debt_variants", update.Message.Chat.ChatId)
-				// if err != nil {
-				// 	log.Println(err)
-
-				// 	bot.ReplyKeyboard.destroy()
-
-				// 	err = bot.sendError(update.Message.Chat.ChatId, UNEXPECTED_ERROR)
-				// 	if err != nil {
-				// 		log.Fatal(err)
-				// 	}
-				// } else {
-				// 	processing.create(update.Message.Chat.ChatId, update.Message.Text, Extra{})
-
-				// 	if err = bot.sendMessage(
-				// 		update.Message.Chat.ChatId,
-				// 		"Кто кому должен? Выбери подходящий вариант%0A"+
-				// 			"Напиши /cancel, если передумал",
-				// 	); err != nil {
-				// 		log.Fatal(err)
-				// 	}
-
-				// 	bot.ReplyKeyboard.destroy()
-				// }
 				// --------------------------------------------------------------------------------------------------------
 			} else {
 				var process Process
@@ -511,87 +482,6 @@ func main() {
 					}
 
 					processing.destroy(update.Message.Chat.ChatId)
-					// -------------------------------------------------------------------------------------------------
-				} else if process.Command == "/create_debt" {
-					// ------------------------------------------------ handle update in /create_debt command processing
-					// debt := Debt{
-					// 	Account: update.Message.Chat.ChatId,
-					// 	Whose:   update.Message.Text,
-					// }
-
-					// if err = bot.sendMessage(
-					// 	update.Message.Chat.ChatId,
-					// 	"Какую сумму?",
-					// ); err != nil {
-					// 	log.Fatal(err)
-					// }
-
-					// processing.create(
-					// 	update.Message.Chat.ChatId,
-					// 	"/set_debt_amount",
-					// 	Extra{
-					// 		Debt: debt,
-					// 	},
-					// )
-					// -------------------------------------------------------------------------------------------------
-				} else if process.Command == "/set_debt_amount" {
-					// -------------------------------------------- handle update in /set_debt_amount command processing
-					// amount, err := strconv.Atoi(update.Message.Text)
-					// if err != nil {
-					// 	log.Println(err)
-
-					// 	err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[INCORRECT_VALUE])
-					// 	if err != nil {
-					// 		log.Fatal(err)
-					// 	}
-					// } else {
-					// 	process.Extra.Debt.Amount = amount
-
-					// 	if err = bot.sendMessage(
-					// 		update.Message.Chat.ChatId,
-					// 		"Добавь комментарий",
-					// 	); err != nil {
-					// 		log.Fatal(err)
-					// 	}
-
-					// 	processing.create(
-					// 		update.Message.Chat.ChatId,
-					// 		"/set_debt_comment",
-					// 		Extra{
-					// 			Debt: process.Extra.Debt,
-					// 		},
-					// 	)
-					// }
-					// -------------------------------------------------------------------------------------------------
-				} else if process.Command == "/set_debt_comment" {
-					// ------------------------------------------- handle update in /set_debt_comment command processing
-					// process.Extra.Debt.Comment = update.Message.Text
-
-					// err = process.Extra.Debt.create()
-					// if err != nil {
-					// 	log.Println(err)
-
-					// 	err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
-					// 	if err != nil {
-					// 		log.Fatal(err)
-					// 	}
-					// } else {
-					// 	if err = bot.sendMessage(
-					// 		update.Message.Chat.ChatId,
-					// 		"Готово!",
-					// 	); err != nil {
-					// 		log.Fatal(err)
-					// 	}
-
-					// 	if err = bot.sendMessage(
-					// 		update.Message.Chat.ChatId,
-					// 		"Я буду переодически напоминать тебе о нём",
-					// 	); err != nil {
-					// 		log.Fatal(err)
-					// 	}
-					// }
-
-					// processing.destroy(update.Message.Chat.ChatId)
 					// -------------------------------------------------------------------------------------------------
 				}
 			}
