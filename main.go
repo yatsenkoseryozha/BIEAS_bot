@@ -34,7 +34,7 @@ func init() {
 	exPath := filepath.Dir(ex)
 	err := godotenv.Load(filepath.Join(exPath, ".env"))
 	if err != nil {
-		log.Fatal("No .env file found")
+		log.Println("No .env file found")
 	}
 
 	// init DataBase
