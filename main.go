@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strconv"
 
-	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -29,16 +27,8 @@ var bot Bot
 var processing Processing
 
 func init() {
-	// find .env file
-	ex, _ := os.Executable()
-	exPath := filepath.Dir(ex)
-	err := godotenv.Load(filepath.Join(exPath, ".env"))
-	if err != nil {
-		log.Println("No .env file found")
-	}
-
 	// init DataBase
-	dbUri, _ := os.LookupEnv("DB_URI")
+	dbUri := os.Getenv("DB_URI")
 	clientOptions := options.Client().ApplyURI(dbUri)
 	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
@@ -54,7 +44,7 @@ func init() {
 
 	// init Bot
 	botUrl := "https://api.telegram.org/bot"
-	botToken, _ := os.LookupEnv("BOT_TOKEN")
+	botToken := os.Getenv("BOT_TOKEN")
 	bot.URI = botUrl + botToken
 	bot.ReplyKeyboard = ReplyKeyboard{
 		Keyboard:       [][]string{},
@@ -62,7 +52,7 @@ func init() {
 		OneTime:        true,
 		RemoveKeyboard: true,
 	}
-	developer, _ := os.LookupEnv("DEVELOPER")
+	developer := os.Getenv("DEVELOPER")
 	bot.Errors = map[string]string{
 		NO_BANKS:           "На твоем аккаунте нет ни одной копилки!",
 		BANK_NAME_IS_EXIST: "Копилка с таким названием уже существует. Попробуй снова",
