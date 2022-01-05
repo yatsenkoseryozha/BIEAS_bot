@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -132,27 +131,9 @@ func (operation *Operation) create() error {
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------- BOT MODELS
 type Bot struct {
-	URI            string
-	GetUpdatesResp GetUpdatesResp
-	ReplyKeyboard  ReplyKeyboard
-	Errors         map[string]string
-}
-
-func (bot *Bot) getUpdates(offset int) error {
-	resp, err := http.Get(bot.URI + "/getUpdates" + "?offset=" + strconv.Itoa(offset))
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
-
-	json.Unmarshal(body, &bot.GetUpdatesResp)
-
-	return nil
+	Token         string
+	ReplyKeyboard ReplyKeyboard
+	Errors        map[string]string
 }
 
 func (bot *Bot) sendMessage(chat int, text string) error {
@@ -165,7 +146,7 @@ func (bot *Bot) sendMessage(chat int, text string) error {
 
 	options += "&reply_markup=" + string(keyboardJSON)
 
-	resp, err := http.Get(bot.URI + "/sendMessage" + options)
+	resp, err := http.Get("https://api.telegram.org/bot" + bot.Token + "/sendMessage" + options)
 	if err != nil {
 		return err
 	}
@@ -175,11 +156,6 @@ func (bot *Bot) sendMessage(chat int, text string) error {
 }
 
 // Updates Models ------------------------------------------------------------
-type GetUpdatesResp struct {
-	Ok      bool     `json:"ok"`
-	Updates []Update `json:"result"`
-}
-
 type Update struct {
 	UpdateId int     `json:"update_id"`
 	Message  Message `json:"message"`
