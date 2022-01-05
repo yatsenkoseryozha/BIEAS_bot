@@ -417,8 +417,14 @@ func main() {
 				// ------------------------------------------- handle update in /create_operation command processing
 				process.Extra.Operation.Comment = update.Message.Text
 
-				err = process.Extra.Operation.create()
-				if err != nil {
+				var bank Bank
+				if err = db.getDocument(
+					"banks",
+					bson.M{
+						"account": update.Message.Chat.ChatId,
+						"id":      process.Extra.Operation.Bank,
+					},
+				).Decode(&bank); err != nil {
 					log.Println(err)
 
 					err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
@@ -426,14 +432,20 @@ func main() {
 						log.Fatal(err)
 					}
 				} else {
-					var bank Bank
-					if err = db.getDocument(
-						"banks",
-						bson.M{
-							"account": update.Message.Chat.ChatId,
-							"id":      process.Extra.Operation.Bank,
-						},
-					).Decode(&bank); err != nil {
+					var balance int
+
+					if process.Extra.Operation.Operation == "/income" {
+						balance = bank.Balance + process.Extra.Operation.Amount
+					} else if process.Extra.Operation.Operation == "/expense" {
+						balance = bank.Balance - process.Extra.Operation.Amount
+					}
+
+					bank.update(bson.M{"balance": balance})
+
+					process.Extra.Operation.Remain = bank.Balance
+
+					err = process.Extra.Operation.create()
+					if err != nil {
 						log.Println(err)
 
 						err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
@@ -441,16 +453,6 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						var balance int
-
-						if process.Extra.Operation.Operation == "/income" {
-							balance = bank.Balance + process.Extra.Operation.Amount
-						} else if process.Extra.Operation.Operation == "/expense" {
-							balance = bank.Balance - process.Extra.Operation.Amount
-						}
-
-						bank.update(bson.M{"balance": balance})
-
 						if err = bot.sendMessage(
 							update.Message.Chat.ChatId,
 							"Баланс копилки был успешно изменен! Текущий баланс: "+
