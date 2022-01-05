@@ -106,6 +106,7 @@ type Operation struct {
 	Bank      string `json:"bank" bson:"bank"`
 	Operation string `json:"operation" bson:"operation"`
 	Amount    int    `json:"amount" bson:"amount"`
+	Remain    int    `json:"remain" bson:"remain"`
 	Comment   string `json:"comment" bson:"comment"`
 	CreatedAt string `json:"created_at" bson:"created_at"`
 }
