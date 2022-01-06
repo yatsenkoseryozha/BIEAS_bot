@@ -8,8 +8,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -30,6 +32,14 @@ var bot Bot
 var processing Processing
 
 func init() {
+	// init .env
+	ex, _ := os.Executable()
+	exPath := filepath.Dir(ex)
+	err := godotenv.Load(filepath.Join(exPath, ".env"))
+	if err != nil {
+		log.Println("No .env file found")
+	}
+
 	// init DataBase
 	dbUri := os.Getenv("DB_URI")
 	clientOptions := options.Client().ApplyURI(dbUri)
@@ -42,8 +52,9 @@ func init() {
 		log.Fatal(err)
 	}
 	db.Collections = make(map[string]*mongo.Collection)
-	db.Collections["banks"] = client.Database("general").Collection("banks")
-	db.Collections["operations"] = client.Database("general").Collection("operations")
+	dbName := os.Getenv("DB_NAME")
+	db.Collections["banks"] = client.Database(dbName).Collection("banks")
+	db.Collections["operations"] = client.Database(dbName).Collection("operations")
 
 	// init Bot
 	bot.Token = os.Getenv("BOT_TOKEN")
