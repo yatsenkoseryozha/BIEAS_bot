@@ -78,7 +78,7 @@ func (bank *Bank) destroy() error {
 }
 
 func (bank *Bank) update(update bson.M) error {
-	bank.UpdatedAt = time.Now().String()
+	update["updated_at"] = time.Now().String()
 
 	after := options.After
 	options := &options.FindOneAndUpdateOptions{ReturnDocument: &after}
