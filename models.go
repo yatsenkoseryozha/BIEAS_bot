@@ -135,7 +135,6 @@ type Bot struct {
 	URI            string
 	GetUpdatesResp GetUpdatesResp
 	ReplyKeyboard  ReplyKeyboard
-	Errors         map[string]string
 }
 
 func (bot *Bot) getUpdates(offset int) error {
@@ -234,19 +233,6 @@ type Processing struct {
 	Processes []Process
 }
 
-type Process struct {
-	Chat    int
-	Command string
-	Extra   Extra
-}
-
-type Extra struct {
-	Bank      Bank
-	Operation Operation
-	// Debt      Debt
-	Keyboard []string
-}
-
 func (processing *Processing) create(chat int, command string, extra Extra) {
 	processing.destroy(chat)
 
@@ -266,6 +252,19 @@ func (processing *Processing) destroy(chat int) {
 			break
 		}
 	}
+}
+
+// Process Models ------------------------------------------------------------
+type Process struct {
+	Chat    int
+	Command string
+	Extra   Extra
+}
+
+type Extra struct {
+	Bank      Bank
+	Operation Operation
+	Keyboard  []string
 }
 
 // ---------------------------------------------------------------------------

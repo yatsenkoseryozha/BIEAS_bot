@@ -1,6 +1,7 @@
 package main
 
 import (
+	"BIEAS_bot/enums"
 	"context"
 	"fmt"
 	"log"
@@ -13,15 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-// --------------------------------------------------------------------------------------- bot errors names
-const NO_BANKS = "NO_BANKS"
-const BANK_NAME_IS_EXIST = "BANK_NAME_IS_EXIST"
-const BANK_NOT_FOUND = "BANK_NOT_FOUND"
-const INCORRECT_VALUE = "INCORRECT_VALUE"
-const UNEXPECTED_ERROR = "UNEXPECTED_ERROR"
-
-// --------------------------------------------------------------------------------------------------------
 
 var ctx = context.TODO()
 var db DataBase
@@ -62,14 +54,6 @@ func init() {
 		OneTime:        true,
 		RemoveKeyboard: true,
 	}
-	developer, _ := os.LookupEnv("DEVELOPER")
-	bot.Errors = map[string]string{
-		NO_BANKS:           "На твоем аккаунте нет ни одной копилки!",
-		BANK_NAME_IS_EXIST: "Копилка с таким названием уже существует. Попробуй снова",
-		BANK_NOT_FOUND:     "Копилка с таким названием не найдена. Попробуй снова",
-		INCORRECT_VALUE:    "Некорректное значение. Попробуй снова",
-		UNEXPECTED_ERROR:   "Произошла непредвиденная ошибка. Пожалуйста, напиши об этом разработчику @" + developer,
-	}
 
 	fmt.Println("Инициализация прошла успешно! Бот готов к работе.")
 }
@@ -98,7 +82,7 @@ func main() {
 				if err != nil {
 					log.Println(err)
 
-					err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+					err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -169,7 +153,7 @@ func main() {
 				if err != nil {
 					log.Println(err)
 
-					err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+					err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 					if err != nil {
 						log.Fatal(err)
 					}
@@ -181,7 +165,7 @@ func main() {
 						if err != nil {
 							log.Println(err)
 
-							err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -191,7 +175,7 @@ func main() {
 					}
 
 					if len(keyboardButtons) == 0 {
-						err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[NO_BANKS])
+						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.NO_BANKS])
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -264,7 +248,7 @@ func main() {
 					if err != nil && err.Error() != "mongo: no documents in result" {
 						log.Println(err)
 
-						err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -273,7 +257,7 @@ func main() {
 					} else if bank.Name != "" {
 						log.Println(err)
 
-						err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[BANK_NAME_IS_EXIST])
+						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.BANK_NAME_IS_EXIST])
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -285,7 +269,7 @@ func main() {
 						if err != nil {
 							log.Println(err)
 
-							err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -318,14 +302,14 @@ func main() {
 						if err.Error() == "mongo: no documents in result" {
 							bot.ReplyKeyboard.create(process.Extra.Keyboard)
 
-							err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[BANK_NOT_FOUND])
+							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.BANK_NOT_FOUND])
 							if err != nil {
 								log.Fatal(err)
 							}
 
 							bot.ReplyKeyboard.destroy()
 						} else {
-							err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -338,7 +322,7 @@ func main() {
 							if err != nil {
 								log.Println(err)
 
-								err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+								err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 								if err != nil {
 									log.Fatal(err)
 								}
@@ -391,7 +375,7 @@ func main() {
 					if err != nil {
 						log.Println(err)
 
-						err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[INCORRECT_VALUE])
+						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.INCORRECT_VALUE])
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -441,7 +425,7 @@ func main() {
 					if err != nil {
 						log.Println(err)
 
-						err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -456,7 +440,7 @@ func main() {
 						).Decode(&bank); err != nil {
 							log.Println(err)
 
-							err = bot.sendMessage(update.Message.Chat.ChatId, bot.Errors[UNEXPECTED_ERROR])
+							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
