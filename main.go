@@ -333,32 +333,25 @@ func main() {
 						processing.Destroy(update.Message.Chat.ChatId)
 					}
 					// -------------------------------------------------------------------------------------------------
-				} else if process.Command == enums.BotCommands[enums.DESTROY_BANK] || process.Command == enums.BotCommands[enums.GET_BALANCE] ||
-					process.Command == enums.BotCommands[enums.INCOME] || process.Command == enums.BotCommands[enums.EXPENSE] {
-					// -------- handle update in /Destroy_bank or /get_balance or /income or /expensenums.BotCommands[enums.INCOME]
-					var bank models.Bank
-
-					if err = db.GetDocument(
-						ctx,
-						"banks",
-						bson.M{
-							"account": update.Message.Chat.ChatId,
-							"name":    update.Message.Text,
-						},
-					).Decode(&bank); err != nil {
+				} else if process.Command == enums.BotCommands[enums.DESTROY_BANK] {
+					// ----------------------------------------------- handle update in /destroy_bank command processing
+					if bank, err := utils.GetBank(ctx, &db, bson.M{
+						"account": update.Message.Chat.ChatId,
+						"bank":    update.Message.Text,
+					}); err != nil {
 						log.Println(err)
 
-						if err.Error() == "mongo: no documents in result" {
+						if err.Error() == enums.UserErrors[enums.BANK_NOT_FOUND] {
 							bot.ReplyKeyboard.Create(process.Extra.Keyboard)
 
-							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.BANK_NOT_FOUND])
+							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 							if err != nil {
 								log.Fatal(err)
 							}
 
 							bot.ReplyKeyboard.Destroy()
 						} else {
-							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -366,56 +359,148 @@ func main() {
 							processing.Destroy(update.Message.Chat.ChatId)
 						}
 					} else {
-						if process.Command == enums.BotCommands[enums.DESTROY_BANK] {
-							err = bank.Destroy(ctx, &db)
+						err = bank.Destroy(ctx, &db)
+						if err != nil {
+							log.Println(err)
+
+							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
-								log.Println(err)
-
-								err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
-								if err != nil {
-									log.Fatal(err)
-								}
-							} else {
-								if err = bot.SendMessage(
-									update.Message.Chat.ChatId,
-									"Копилка успешно удалена!",
-								); err != nil {
-									log.Fatal(err)
-								}
+								log.Fatal(err)
 							}
-
-							processing.Destroy(update.Message.Chat.ChatId)
-						}
-
-						if process.Command == enums.BotCommands[enums.GET_BALANCE] {
+						} else {
 							if err = bot.SendMessage(
 								update.Message.Chat.ChatId,
-								"Баланс копилки "+bank.Name+" составляет "+strconv.Itoa(bank.Balance)+" руб.",
+								"Копилка успешно удалена!",
 							); err != nil {
 								log.Fatal(err)
 							}
-
-							processing.Destroy(update.Message.Chat.ChatId)
 						}
 
-						if process.Command == enums.BotCommands[enums.INCOME] || process.Command == enums.BotCommands[enums.EXPENSE] {
-							err = bot.SendMessage(update.Message.Chat.ChatId, "На какую сумму?")
+						processing.Destroy(update.Message.Chat.ChatId)
+					}
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == enums.BotCommands[enums.GET_BALANCE] {
+					// ------------------------------------------------ handle update in /get_balance command processing
+					if bank, err := utils.GetBank(ctx, &db, bson.M{
+						"account": update.Message.Chat.ChatId,
+						"bank":    update.Message.Text,
+					}); err != nil {
+						log.Println(err)
+
+						if err.Error() == enums.UserErrors[enums.BANK_NOT_FOUND] {
+							bot.ReplyKeyboard.Create(process.Extra.Keyboard)
+
+							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 							if err != nil {
 								log.Fatal(err)
 							}
 
-							processing.Create(
-								update.Message.Chat.ChatId,
-								"/set_operation_amount",
-								models.Extra{
-									Operation: models.Operation{
-										Account:   update.Message.Chat.ChatId,
-										Bank:      bank.Id,
-										Operation: process.Command,
-									},
-								},
-							)
+							bot.ReplyKeyboard.Destroy()
+						} else {
+							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							processing.Destroy(update.Message.Chat.ChatId)
 						}
+					} else {
+						if err = bot.SendMessage(
+							update.Message.Chat.ChatId,
+							"Баланс копилки "+bank.Name+" составляет "+strconv.Itoa(bank.Balance)+" руб.",
+						); err != nil {
+							log.Fatal(err)
+						}
+
+						processing.Destroy(update.Message.Chat.ChatId)
+					}
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == enums.BotCommands[enums.INCOME] {
+					// ----------------------------------------------------- handle update in /income command processing
+					if bank, err := utils.GetBank(ctx, &db, bson.M{
+						"account": update.Message.Chat.ChatId,
+						"bank":    update.Message.Text,
+					}); err != nil {
+						log.Println(err)
+
+						if err.Error() == enums.UserErrors[enums.BANK_NOT_FOUND] {
+							bot.ReplyKeyboard.Create(process.Extra.Keyboard)
+
+							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							bot.ReplyKeyboard.Destroy()
+						} else {
+							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							processing.Destroy(update.Message.Chat.ChatId)
+						}
+					} else {
+						err = bot.SendMessage(update.Message.Chat.ChatId, "На какую сумму?")
+						if err != nil {
+							log.Fatal(err)
+						}
+
+						processing.Create(
+							update.Message.Chat.ChatId,
+							"/set_operation_amount",
+							models.Extra{
+								Operation: models.Operation{
+									Account:   update.Message.Chat.ChatId,
+									Bank:      bank.Id,
+									Operation: process.Command,
+								},
+							},
+						)
+					}
+					// -------------------------------------------------------------------------------------------------
+				} else if process.Command == enums.BotCommands[enums.EXPENSE] {
+					// ---------------------------------------------------- handle update in /expense command processing
+					if bank, err := utils.GetBank(ctx, &db, bson.M{
+						"account": update.Message.Chat.ChatId,
+						"bank":    update.Message.Text,
+					}); err != nil {
+						log.Println(err)
+
+						if err.Error() == enums.UserErrors[enums.BANK_NOT_FOUND] {
+							bot.ReplyKeyboard.Create(process.Extra.Keyboard)
+
+							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							bot.ReplyKeyboard.Destroy()
+						} else {
+							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+							if err != nil {
+								log.Fatal(err)
+							}
+
+							processing.Destroy(update.Message.Chat.ChatId)
+						}
+					} else {
+						err = bot.SendMessage(update.Message.Chat.ChatId, "На какую сумму?")
+						if err != nil {
+							log.Fatal(err)
+						}
+
+						processing.Create(
+							update.Message.Chat.ChatId,
+							"/set_operation_amount",
+							models.Extra{
+								Operation: models.Operation{
+									Account:   update.Message.Chat.ChatId,
+									Bank:      bank.Id,
+									Operation: process.Command,
+								},
+							},
+						)
 					}
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command == "/set_operation_amount" {
