@@ -1,12 +1,14 @@
 package models
 
+import "BIEAS_bot/enums"
+
 // ---------------------------------------------------------------------------
 // --------------------------------------------------------- PROCESSING MODELS
 type Processing struct {
 	Processes []Process
 }
 
-func (processing *Processing) Create(chat int, command string, extra Extra) {
+func (processing *Processing) Create(chat int, command Command, extra Extra) {
 	processing.Destroy(chat)
 
 	processing.Processes = append(processing.Processes, Process{
@@ -30,8 +32,13 @@ func (processing *Processing) Destroy(chat int) {
 // Process Models ------------------------------------------------------------
 type Process struct {
 	Chat    int
-	Command string
+	Command Command
 	Extra   Extra
+}
+
+type Command struct {
+	Name enums.BotCommand
+	Step int
 }
 
 type Extra struct {

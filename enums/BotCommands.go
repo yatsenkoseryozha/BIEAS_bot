@@ -3,7 +3,8 @@ package enums
 type BotCommand int
 
 const (
-	START BotCommand = iota
+	UndefinedBotCommand BotCommand = iota
+	START
 	CANCEL
 	CREATE_BANK
 	DESTROY_BANK
@@ -13,11 +14,12 @@ const (
 )
 
 var BotCommands = map[BotCommand]string{
-	START:        "/start",
-	CANCEL:       "/cancel",
-	CREATE_BANK:  "/create_bank",
-	DESTROY_BANK: "/destroy_bank",
-	GET_BALANCE:  "/get_balance",
-	INCOME:       "/income",
-	EXPENSE:      "/expense",
+	UndefinedBotCommand: "",
+	START:               "/start",
+	CANCEL:              "/cancel",
+	CREATE_BANK:         "/create_bank",
+	DESTROY_BANK:        "/destroy_bank",
+	GET_BALANCE:         "/get_balance",
+	INCOME:              "/income",
+	EXPENSE:             "/expense",
 }
