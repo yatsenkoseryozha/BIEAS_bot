@@ -2,6 +2,7 @@ package main
 
 import (
 	"BIEAS_bot/enums"
+	"BIEAS_bot/models"
 	"context"
 	"fmt"
 	"log"
@@ -16,9 +17,9 @@ import (
 )
 
 var ctx = context.TODO()
-var db DataBase
-var bot Bot
-var processing Processing
+var db models.DataBase
+var bot models.Bot
+var processing models.Processing
 
 func init() {
 	// find .env file
@@ -48,7 +49,7 @@ func init() {
 	botUrl := "https://api.telegram.org/bot"
 	botToken, _ := os.LookupEnv("BOT_TOKEN")
 	bot.URI = botUrl + botToken
-	bot.ReplyKeyboard = ReplyKeyboard{
+	bot.ReplyKeyboard = models.ReplyKeyboard{
 		Keyboard:       [][]string{},
 		Resize:         true,
 		OneTime:        true,
@@ -61,7 +62,7 @@ func init() {
 func main() {
 	offset := 0
 	for {
-		err := bot.getUpdates(offset)
+		err := bot.GetUpdates(offset)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -69,9 +70,10 @@ func main() {
 		for _, update := range bot.GetUpdatesResp.Updates {
 			if update.Message.Text == enums.BotCommands[enums.START] {
 				// ---------------------------------------------------------------------------------- handle /start command
-				processing.destroy(update.Message.Chat.ChatId)
+				processing.Destroy(update.Message.Chat.ChatId)
 
-				banks, err := db.getDocuments(
+				banks, err := db.GetDocuments(
+					ctx,
 					"banks",
 					bson.M{
 						"account": update.Message.Chat.ChatId,
@@ -82,17 +84,17 @@ func main() {
 				if err != nil {
 					log.Println(err)
 
-					err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+					err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 					if err != nil {
 						log.Fatal(err)
 					}
 				} else {
 					if banks.RemainingBatchLength() > 0 {
-						if err = bot.sendMessage(
+						if err = bot.SendMessage(
 							update.Message.Chat.ChatId,
 							"Для работы с ботом используй одну из следующих команд:%0A"+
 								"/create_bank - создать копилку%0A"+
-								"/destroy_bank - удалить копилку%0A"+
+								"/Destroy_bank - удалить копилку%0A"+
 								"/income - увеличить баланс копилки%0A"+
 								"/expense - уменьшить баланс копилки%0A"+
 								"/get_balance - узнать баланс копилки",
@@ -100,22 +102,22 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						if err = bot.sendMessage(
+						if err = bot.SendMessage(
 							update.Message.Chat.ChatId,
 							"Привет! Давай создадим для тебя копилку. Какое название дадим ей?",
 						); err != nil {
 							log.Fatal(err)
 						}
 
-						processing.create(update.Message.Chat.ChatId, enums.BotCommands[enums.CREATE_BANK], Extra{})
+						processing.Create(update.Message.Chat.ChatId, enums.BotCommands[enums.CREATE_BANK], models.Extra{})
 					}
 				}
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == enums.BotCommands[enums.CANCEL] {
 				// --------------------------------------------------------------------------------- handle /cancel command
-				processing.destroy(update.Message.Chat.ChatId)
+				processing.Destroy(update.Message.Chat.ChatId)
 
-				if err = bot.sendMessage(
+				if err = bot.SendMessage(
 					update.Message.Chat.ChatId,
 					"Что-нибудь ещё?",
 				); err != nil {
@@ -124,27 +126,28 @@ func main() {
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == enums.BotCommands[enums.CREATE_BANK] {
 				// ---------------------------------------------------------------------------- handle /create_bank command
-				processing.destroy(update.Message.Chat.ChatId)
+				processing.Destroy(update.Message.Chat.ChatId)
 
-				if err = bot.sendMessage(
+				if err = bot.SendMessage(
 					update.Message.Chat.ChatId,
 					"Как хочешь назвать новую копилку? Напиши /cancel, если передумал",
 				); err != nil {
 					log.Fatal(err)
 				}
 
-				processing.create(update.Message.Chat.ChatId, update.Message.Text, Extra{})
+				processing.Create(update.Message.Chat.ChatId, update.Message.Text, models.Extra{})
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == enums.BotCommands[enums.DESTROY_BANK] ||
 				update.Message.Text == enums.BotCommands[enums.GET_BALANCE] ||
 				update.Message.Text == enums.BotCommands[enums.INCOME] ||
 				update.Message.Text == enums.BotCommands[enums.EXPENSE] {
-				// ------------------------------------ handle /destroy_bank or /get_balance or /income or /expense command
-				processing.destroy(update.Message.Chat.ChatId)
+				// ------------------------------------ handle /Destroy_bank or /get_balance or /income or /expense command
+				processing.Destroy(update.Message.Chat.ChatId)
 
 				var keyboardButtons []string
 
-				banks, err := db.getDocuments(
+				banks, err := db.GetDocuments(
+					ctx,
 					"banks",
 					bson.M{
 						"account": update.Message.Chat.ChatId,
@@ -155,19 +158,19 @@ func main() {
 				if err != nil {
 					log.Println(err)
 
-					err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+					err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 					if err != nil {
 						log.Fatal(err)
 					}
 				} else {
 					for banks.Next(ctx) {
-						var bank Bank
+						var bank models.Bank
 
 						err = banks.Decode(&bank)
 						if err != nil {
 							log.Println(err)
 
-							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -177,12 +180,12 @@ func main() {
 					}
 
 					if len(keyboardButtons) == 0 {
-						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.NO_BANKS])
+						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.NO_BANKS])
 						if err != nil {
 							log.Fatal(err)
 						}
 					} else {
-						bot.ReplyKeyboard.create(keyboardButtons)
+						bot.ReplyKeyboard.Create(keyboardButtons)
 
 						var message string
 
@@ -195,18 +198,18 @@ func main() {
 							message = "Баланс какой копилки будем изменять?"
 						}
 
-						if err = bot.sendMessage(
+						if err = bot.SendMessage(
 							update.Message.Chat.ChatId,
 							message+" Напиши /cancel, если передумал",
 						); err != nil {
 							log.Fatal(err)
 						}
 
-						bot.ReplyKeyboard.destroy()
-						processing.create(
+						bot.ReplyKeyboard.Destroy()
+						processing.Create(
 							update.Message.Chat.ChatId,
 							update.Message.Text,
-							Extra{
+							models.Extra{
 								Keyboard: keyboardButtons,
 							},
 						)
@@ -214,7 +217,7 @@ func main() {
 				}
 				// --------------------------------------------------------------------------------------------------------
 			} else {
-				var process Process
+				var process models.Process
 
 				for _, proc := range processing.Processes {
 					if proc.Chat == update.Message.Chat.ChatId {
@@ -224,11 +227,11 @@ func main() {
 
 				if process.Command == "" {
 					// -------------------------------------------------------------------------- handle unexpected message
-					if err = bot.sendMessage(
+					if err = bot.SendMessage(
 						update.Message.Chat.ChatId,
 						"Для работы с ботом используй одну из следующих команд:%0A"+
 							"/create_bank - создать копилку%0A"+
-							"/destroy_bank - удалить копилку%0A"+
+							"/Destroy_bank - удалить копилку%0A"+
 							"/income - увеличить баланс копилки%0A"+
 							"/expense - уменьшить баланс копилки%0A"+
 							"/get_balance - узнать баланс копилки%0A",
@@ -238,9 +241,10 @@ func main() {
 					// -----------------------------------------------------------------------------------------------------
 				} else if process.Command == enums.BotCommands[enums.CREATE_BANK] {
 					// ------------------------------------------------ handle update in /create_bank command processing
-					var bank Bank
+					var bank models.Bank
 
-					err = db.getDocument(
+					err = db.GetDocument(
+						ctx,
 						"banks",
 						bson.M{
 							"account": update.Message.Chat.ChatId,
@@ -250,16 +254,16 @@ func main() {
 					if err != nil && err.Error() != "mongo: no documents in result" {
 						log.Println(err)
 
-						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 						if err != nil {
 							log.Fatal(err)
 						}
 
-						processing.destroy(update.Message.Chat.ChatId)
+						processing.Destroy(update.Message.Chat.ChatId)
 					} else if bank.Name != "" {
 						log.Println(err)
 
-						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.BANK_NAME_IS_EXIST])
+						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.BANK_NAME_IS_EXIST])
 						if err != nil {
 							log.Fatal(err)
 						}
@@ -267,16 +271,16 @@ func main() {
 						bank.Account = update.Message.Chat.ChatId
 						bank.Name = update.Message.Text
 
-						err = bank.create()
+						err = bank.Create(ctx, &db)
 						if err != nil {
 							log.Println(err)
 
-							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
 						} else {
-							if err = bot.sendMessage(
+							if err = bot.SendMessage(
 								update.Message.Chat.ChatId,
 								"Копилка успешно создана!",
 							); err != nil {
@@ -284,15 +288,16 @@ func main() {
 							}
 						}
 
-						processing.destroy(update.Message.Chat.ChatId)
+						processing.Destroy(update.Message.Chat.ChatId)
 					}
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command == enums.BotCommands[enums.DESTROY_BANK] || process.Command == enums.BotCommands[enums.GET_BALANCE] ||
 					process.Command == enums.BotCommands[enums.INCOME] || process.Command == enums.BotCommands[enums.EXPENSE] {
-					// -------- handle update in /destroy_bank or /get_balance or /income or /expensenums.BotCommands[enums.INCOME]
-					var bank Bank
+					// -------- handle update in /Destroy_bank or /get_balance or /income or /expensenums.BotCommands[enums.INCOME]
+					var bank models.Bank
 
-					if err = db.getDocument(
+					if err = db.GetDocument(
+						ctx,
 						"banks",
 						bson.M{
 							"account": update.Message.Chat.ChatId,
@@ -302,34 +307,34 @@ func main() {
 						log.Println(err)
 
 						if err.Error() == "mongo: no documents in result" {
-							bot.ReplyKeyboard.create(process.Extra.Keyboard)
+							bot.ReplyKeyboard.Create(process.Extra.Keyboard)
 
-							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.BANK_NOT_FOUND])
+							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.BANK_NOT_FOUND])
 							if err != nil {
 								log.Fatal(err)
 							}
 
-							bot.ReplyKeyboard.destroy()
+							bot.ReplyKeyboard.Destroy()
 						} else {
-							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
 
-							processing.destroy(update.Message.Chat.ChatId)
+							processing.Destroy(update.Message.Chat.ChatId)
 						}
 					} else {
 						if process.Command == enums.BotCommands[enums.DESTROY_BANK] {
-							err = bank.destroy()
+							err = bank.Destroy(ctx, &db)
 							if err != nil {
 								log.Println(err)
 
-								err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+								err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 								if err != nil {
 									log.Fatal(err)
 								}
 							} else {
-								if err = bot.sendMessage(
+								if err = bot.SendMessage(
 									update.Message.Chat.ChatId,
 									"Копилка успешно удалена!",
 								); err != nil {
@@ -337,31 +342,31 @@ func main() {
 								}
 							}
 
-							processing.destroy(update.Message.Chat.ChatId)
+							processing.Destroy(update.Message.Chat.ChatId)
 						}
 
 						if process.Command == enums.BotCommands[enums.GET_BALANCE] {
-							if err = bot.sendMessage(
+							if err = bot.SendMessage(
 								update.Message.Chat.ChatId,
 								"Баланс копилки "+bank.Name+" составляет "+strconv.Itoa(bank.Balance)+" руб.",
 							); err != nil {
 								log.Fatal(err)
 							}
 
-							processing.destroy(update.Message.Chat.ChatId)
+							processing.Destroy(update.Message.Chat.ChatId)
 						}
 
 						if process.Command == enums.BotCommands[enums.INCOME] || process.Command == enums.BotCommands[enums.EXPENSE] {
-							err = bot.sendMessage(update.Message.Chat.ChatId, "На какую сумму?")
+							err = bot.SendMessage(update.Message.Chat.ChatId, "На какую сумму?")
 							if err != nil {
 								log.Fatal(err)
 							}
 
-							processing.create(
+							processing.Create(
 								update.Message.Chat.ChatId,
 								"/set_operation_amount",
-								Extra{
-									Operation: Operation{
+								models.Extra{
+									Operation: models.Operation{
 										Account:   update.Message.Chat.ChatId,
 										Bank:      bank.Id,
 										Operation: process.Command,
@@ -377,23 +382,23 @@ func main() {
 					if err != nil {
 						log.Println(err)
 
-						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.INCORRECT_VALUE])
+						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.INCORRECT_VALUE])
 						if err != nil {
 							log.Fatal(err)
 						}
 					} else {
-						if err = bot.sendMessage(
+						if err = bot.SendMessage(
 							update.Message.Chat.ChatId,
 							"Добавь комментарий к операции",
 						); err != nil {
 							log.Fatal(err)
 						}
 
-						processing.create(
+						processing.Create(
 							update.Message.Chat.ChatId,
 							"/set_operation_comment",
-							Extra{
-								Operation: Operation{
+							models.Extra{
+								Operation: models.Operation{
 									Account:   process.Extra.Operation.Account,
 									Bank:      process.Extra.Operation.Bank,
 									Operation: process.Extra.Operation.Operation,
@@ -405,11 +410,11 @@ func main() {
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command == "/set_operation_comment" {
 					// -------------------------------------- handle update in /set_operation_comment command processing
-					processing.create(
+					processing.Create(
 						process.Chat,
 						"/create_operation",
-						Extra{
-							Operation: Operation{
+						models.Extra{
+							Operation: models.Operation{
 								Account:   process.Extra.Operation.Account,
 								Bank:      process.Extra.Operation.Bank,
 								Operation: process.Extra.Operation.Operation,
@@ -423,17 +428,18 @@ func main() {
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command == "/create_operation" {
 					// ------------------------------------------- handle update in /create_operation command processing
-					err = process.Extra.Operation.create()
+					err = process.Extra.Operation.Create(ctx, &db)
 					if err != nil {
 						log.Println(err)
 
-						err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 						if err != nil {
 							log.Fatal(err)
 						}
 					} else {
-						var bank Bank
-						if err = db.getDocument(
+						var bank models.Bank
+						if err = db.GetDocument(
+							ctx,
 							"banks",
 							bson.M{
 								"account": update.Message.Chat.ChatId,
@@ -442,7 +448,7 @@ func main() {
 						).Decode(&bank); err != nil {
 							log.Println(err)
 
-							err = bot.sendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
@@ -455,9 +461,9 @@ func main() {
 								balance = bank.Balance - process.Extra.Operation.Amount
 							}
 
-							bank.update(bson.M{"balance": balance})
+							bank.Update(ctx, &db, bson.M{"balance": balance})
 
-							if err = bot.sendMessage(
+							if err = bot.SendMessage(
 								update.Message.Chat.ChatId,
 								"Баланс копилки был успешно изменен! Текущий баланс: "+
 									strconv.Itoa(bank.Balance)+" руб.",
@@ -467,7 +473,7 @@ func main() {
 						}
 					}
 
-					processing.destroy(update.Message.Chat.ChatId)
+					processing.Destroy(update.Message.Chat.ChatId)
 					// -------------------------------------------------------------------------------------------------
 				}
 			}
