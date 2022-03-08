@@ -3,6 +3,7 @@ package main
 import (
 	"BIEAS_bot/enums"
 	"BIEAS_bot/models"
+	"BIEAS_bot/utils"
 	"context"
 	"fmt"
 	"log"
@@ -137,83 +138,124 @@ func main() {
 
 				processing.Create(update.Message.Chat.ChatId, update.Message.Text, models.Extra{})
 				// --------------------------------------------------------------------------------------------------------
-			} else if update.Message.Text == enums.BotCommands[enums.DESTROY_BANK] ||
-				update.Message.Text == enums.BotCommands[enums.GET_BALANCE] ||
-				update.Message.Text == enums.BotCommands[enums.INCOME] ||
-				update.Message.Text == enums.BotCommands[enums.EXPENSE] {
-				// ------------------------------------ handle /Destroy_bank or /get_balance or /income or /expense command
+			} else if update.Message.Text == enums.BotCommands[enums.DESTROY_BANK] {
+				// --------------------------------------------------------------------------- handle /Destroy_bank command
 				processing.Destroy(update.Message.Chat.ChatId)
 
-				var keyboardButtons []string
-
-				banks, err := db.GetDocuments(
+				if keyboardButtons, err := utils.CreateKeyboardButtons(
 					ctx,
+					&db,
 					"banks",
 					bson.M{
 						"account": update.Message.Chat.ChatId,
 					},
-				)
-				defer banks.Close(ctx)
+				); err != nil {
+					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+				} else {
+					bot.ReplyKeyboard.Create(keyboardButtons)
 
-				if err != nil {
-					log.Println(err)
-
-					err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
-					if err != nil {
+					if err = bot.SendMessage(
+						update.Message.Chat.ChatId,
+						"Какую копилку ты хочешь удалить? Напиши /cancel, если передумал",
+					); err != nil {
 						log.Fatal(err)
 					}
+
+					bot.ReplyKeyboard.Destroy()
+					processing.Create(
+						update.Message.Chat.ChatId,
+						update.Message.Text,
+						models.Extra{
+							Keyboard: keyboardButtons,
+						},
+					)
+				}
+				// --------------------------------------------------------------------------------------------------------
+			} else if update.Message.Text == enums.BotCommands[enums.GET_BALANCE] {
+				// ---------------------------------------------------------------------------- handle /get_balance command
+				if keyboardButtons, err := utils.CreateKeyboardButtons(
+					ctx,
+					&db,
+					"banks",
+					bson.M{
+						"account": update.Message.Chat.ChatId,
+					},
+				); err != nil {
+					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 				} else {
-					for banks.Next(ctx) {
-						var bank models.Bank
-
-						err = banks.Decode(&bank)
-						if err != nil {
-							log.Println(err)
-
-							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
-							if err != nil {
-								log.Fatal(err)
-							}
-						}
-
-						keyboardButtons = append(keyboardButtons, bank.Name)
+					if err = bot.SendMessage(
+						update.Message.Chat.ChatId,
+						"Баланс какой копилки ты хочешь узнать? Напиши /cancel, если передумал",
+					); err != nil {
+						log.Fatal(err)
 					}
 
-					if len(keyboardButtons) == 0 {
-						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.NO_BANKS])
-						if err != nil {
-							log.Fatal(err)
-						}
-					} else {
-						bot.ReplyKeyboard.Create(keyboardButtons)
-
-						var message string
-
-						if update.Message.Text == enums.BotCommands[enums.DESTROY_BANK] {
-							message = "Какую копилку ты хочешь удалить?"
-						} else if update.Message.Text == enums.BotCommands[enums.GET_BALANCE] {
-							message = "Баланс какой копилки ты хочешь узнать?"
-						} else if update.Message.Text == enums.BotCommands[enums.INCOME] ||
-							update.Message.Text == enums.BotCommands[enums.EXPENSE] {
-							message = "Баланс какой копилки будем изменять?"
-						}
-
-						if err = bot.SendMessage(
-							update.Message.Chat.ChatId,
-							message+" Напиши /cancel, если передумал",
-						); err != nil {
-							log.Fatal(err)
-						}
-
-						bot.ReplyKeyboard.Destroy()
-						processing.Create(
-							update.Message.Chat.ChatId,
-							update.Message.Text,
-							models.Extra{
-								Keyboard: keyboardButtons,
-							},
-						)
+					bot.ReplyKeyboard.Destroy()
+					processing.Create(
+						update.Message.Chat.ChatId,
+						update.Message.Text,
+						models.Extra{
+							Keyboard: keyboardButtons,
+						},
+					)
+				}
+				// --------------------------------------------------------------------------------------------------------
+			} else if update.Message.Text == enums.BotCommands[enums.INCOME] {
+				// --------------------------------------------------------------------------------- handle /income command
+				if keyboardButtons, err := utils.CreateKeyboardButtons(
+					ctx,
+					&db,
+					"banks",
+					bson.M{
+						"account": update.Message.Chat.ChatId,
+					},
+				); err != nil {
+					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+				} else {
+					if err = bot.SendMessage(
+						update.Message.Chat.ChatId,
+						"Баланс какой копилки будем изменять? Напиши /cancel, если передумал",
+					); err != nil {
+						log.Fatal(err)
 					}
+
+					bot.ReplyKeyboard.Destroy()
+					processing.Create(
+						update.Message.Chat.ChatId,
+						update.Message.Text,
+						models.Extra{
+							Keyboard: keyboardButtons,
+						},
+					)
+				}
+				// --------------------------------------------------------------------------------------------------------
+			} else if update.Message.Text == enums.BotCommands[enums.EXPENSE] {
+				// -------------------------------------------------------------------------------- handle /expense command
+				if keyboardButtons, err := utils.CreateKeyboardButtons(
+					ctx,
+					&db,
+					"banks",
+					bson.M{
+						"account": update.Message.Chat.ChatId,
+					},
+				); err != nil {
+					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+				} else {
+					if err = bot.SendMessage(
+						update.Message.Chat.ChatId,
+						"Баланс какой копилки будем изменять? Напиши /cancel, если передумал",
+					); err != nil {
+						log.Fatal(err)
+					}
+
+					bot.ReplyKeyboard.Destroy()
+					processing.Create(
+						update.Message.Chat.ChatId,
+						update.Message.Text,
+						models.Extra{
+							Keyboard: keyboardButtons,
+						},
+					)
 				}
 				// --------------------------------------------------------------------------------------------------------
 			} else {
