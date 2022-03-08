@@ -292,7 +292,7 @@ func main() {
 					}
 					// -----------------------------------------------------------------------------------------------------
 				} else if process.Command.Name == enums.CREATE_BANK {
-					// ------------------------------------------------ handle update in /create_bank command processing
+					// ---------------------------------------------------- handle update in /create_bank command processing
 					var bank models.Bank
 
 					err = db.GetDocument(
@@ -345,10 +345,7 @@ func main() {
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command.Name == enums.DESTROY_BANK {
 					// ----------------------------------------------- handle update in /destroy_bank command processing
-					if bank, err := utils.GetBank(ctx, &db, bson.M{
-						"account": update.Message.Chat.ChatId,
-						"name":    update.Message.Text,
-					}); err != nil {
+					if bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, update.Message.Text); err != nil {
 						log.Println(err)
 
 						if err.Error() == enums.UserErrors[enums.BANK_NOT_FOUND] {
@@ -391,10 +388,7 @@ func main() {
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command.Name == enums.GET_BALANCE {
 					// ------------------------------------------------ handle update in /get_balance command processing
-					if bank, err := utils.GetBank(ctx, &db, bson.M{
-						"account": update.Message.Chat.ChatId,
-						"name":    update.Message.Text,
-					}); err != nil {
+					if bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, update.Message.Text); err != nil {
 						log.Println(err)
 
 						if err.Error() == enums.UserErrors[enums.BANK_NOT_FOUND] {
@@ -427,10 +421,7 @@ func main() {
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command.Name == enums.INCOME {
 					// ----------------------------------------------------- handle update in /income command processing
-					if bank, err := utils.GetBank(ctx, &db, bson.M{
-						"account": update.Message.Chat.ChatId,
-						"name":    update.Message.Text,
-					}); err != nil {
+					if bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, update.Message.Text); err != nil {
 						log.Println(err)
 
 						if err.Error() == enums.UserErrors[enums.BANK_NOT_FOUND] {
@@ -550,10 +541,7 @@ func main() {
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command.Name == enums.EXPENSE {
 					// ---------------------------------------------------- handle update in /expense command processing
-					if bank, err := utils.GetBank(ctx, &db, bson.M{
-						"account": update.Message.Chat.ChatId,
-						"name":    update.Message.Text,
-					}); err != nil {
+					if bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, update.Message.Text); err != nil {
 						log.Println(err)
 
 						if err.Error() == enums.UserErrors[enums.BANK_NOT_FOUND] {
