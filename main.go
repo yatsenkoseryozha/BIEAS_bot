@@ -293,17 +293,8 @@ func main() {
 					// -----------------------------------------------------------------------------------------------------
 				} else if process.Command.Name == enums.CREATE_BANK {
 					// ---------------------------------------------------- handle update in /create_bank command processing
-					var bank models.Bank
-
-					err = db.GetDocument(
-						ctx,
-						"banks",
-						bson.M{
-							"account": update.Message.Chat.ChatId,
-							"name":    update.Message.Text,
-						},
-					).Decode(&bank)
-					if err != nil && err.Error() != "mongo: no documents in result" {
+					bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, process.Extra.Bank.Id)
+					if err != nil && err.Error() != enums.UserErrors[enums.BANK_NOT_FOUND] {
 						log.Println(err)
 
 						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
@@ -323,8 +314,7 @@ func main() {
 						bank.Account = update.Message.Chat.ChatId
 						bank.Name = update.Message.Text
 
-						err = bank.Create(ctx, &db)
-						if err != nil {
+						if err = bank.Create(ctx, &db); err != nil {
 							log.Println(err)
 
 							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
@@ -506,15 +496,7 @@ func main() {
 								log.Fatal(err)
 							}
 						} else {
-							var bank models.Bank
-							if err = db.GetDocument(
-								ctx,
-								"banks",
-								bson.M{
-									"account": update.Message.Chat.ChatId,
-									"id":      process.Extra.Operation.Bank,
-								},
-							).Decode(&bank); err != nil {
+							if bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, process.Extra.Bank.Id); err != nil {
 								log.Println(err)
 
 								err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
@@ -626,15 +608,7 @@ func main() {
 								log.Fatal(err)
 							}
 						} else {
-							var bank models.Bank
-							if err = db.GetDocument(
-								ctx,
-								"banks",
-								bson.M{
-									"account": update.Message.Chat.ChatId,
-									"id":      process.Extra.Operation.Bank,
-								},
-							).Decode(&bank); err != nil {
+							if bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, process.Extra.Bank.Id); err != nil {
 								log.Println(err)
 
 								err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
