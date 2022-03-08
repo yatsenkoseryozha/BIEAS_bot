@@ -537,24 +537,6 @@ func main() {
 					// -------------------------------------------------------------------------------------------------
 				} else if process.Command == "/set_operation_comment" {
 					// -------------------------------------- handle update in /set_operation_comment command processing
-					processing.Create(
-						process.Chat,
-						"/create_operation",
-						models.Extra{
-							Operation: models.Operation{
-								Account:   process.Extra.Operation.Account,
-								Bank:      process.Extra.Operation.Bank,
-								Operation: process.Extra.Operation.Operation,
-								Amount:    process.Extra.Operation.Amount,
-								Comment:   update.Message.Text,
-							},
-						},
-					)
-
-					continue
-					// -------------------------------------------------------------------------------------------------
-				} else if process.Command == "/create_operation" {
-					// ------------------------------------------- handle update in /create_operation command processing
 					err = process.Extra.Operation.Create(ctx, &db)
 					if err != nil {
 						log.Println(err)
