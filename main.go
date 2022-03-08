@@ -73,36 +73,10 @@ func main() {
 				// ---------------------------------------------------------------------------------- handle /start command
 				processing.Destroy(update.Message.Chat.ChatId)
 
-				banks, err := db.GetDocuments(
-					ctx,
-					"banks",
-					bson.M{
-						"account": update.Message.Chat.ChatId,
-					},
-				)
-				defer banks.Close(ctx)
-
-				if err != nil {
+				if _, err := utils.GetBankNames(ctx, &db, update.Message.Chat.ChatId); err != nil {
 					log.Println(err)
 
-					err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
-					if err != nil {
-						log.Fatal(err)
-					}
-				} else {
-					if banks.RemainingBatchLength() > 0 {
-						if err = bot.SendMessage(
-							update.Message.Chat.ChatId,
-							"Для работы с ботом используй одну из следующих команд:%0A"+
-								"/create_bank - создать копилку%0A"+
-								"/destroy_bank - удалить копилку%0A"+
-								"/income - увеличить баланс копилки%0A"+
-								"/expense - уменьшить баланс копилки%0A"+
-								"/get_balance - узнать баланс копилки",
-						); err != nil {
-							log.Fatal(err)
-						}
-					} else {
+					if err.Error() == enums.UserErrors[enums.NO_BANKS] {
 						if err = bot.SendMessage(
 							update.Message.Chat.ChatId,
 							"Привет! Давай создадим для тебя копилку. Какое название дадим ей?",
@@ -115,6 +89,23 @@ func main() {
 							models.Command{Name: enums.CREATE_BANK},
 							models.Extra{},
 						)
+					} else {
+						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
+						if err != nil {
+							log.Fatal(err)
+						}
+					}
+				} else {
+					if err = bot.SendMessage(
+						update.Message.Chat.ChatId,
+						"Для работы с ботом используй одну из следующих команд:%0A"+
+							"/create_bank - создать копилку%0A"+
+							"/destroy_bank - удалить копилку%0A"+
+							"/income - увеличить баланс копилки%0A"+
+							"/expense - уменьшить баланс копилки%0A"+
+							"/get_balance - узнать баланс копилки",
+					); err != nil {
+						log.Fatal(err)
 					}
 				}
 				// --------------------------------------------------------------------------------------------------------
