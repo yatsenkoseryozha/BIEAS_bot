@@ -9,10 +9,10 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func CreateKeyboardButtons(ctx context.Context, db *models.DataBase, collection string, filter bson.M) ([]string, error) {
-	var keyboardButtons []string
+func GetBankNames(ctx context.Context, db *models.DataBase, account int) ([]string, error) {
+	var bankNames []string
 
-	banks, err := db.GetDocuments(ctx, collection, filter)
+	banks, err := db.GetDocuments(ctx, "banks", bson.M{"account": account})
 	defer banks.Close(ctx)
 
 	if err != nil {
@@ -30,9 +30,9 @@ func CreateKeyboardButtons(ctx context.Context, db *models.DataBase, collection 
 				return nil, errors.New(enums.UserErrors[enums.UNEXPECTED_ERROR])
 			}
 
-			keyboardButtons = append(keyboardButtons, bank.Name)
+			bankNames = append(bankNames, bank.Name)
 		}
 
-		return keyboardButtons, nil
+		return bankNames, nil
 	}
 }

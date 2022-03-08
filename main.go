@@ -150,17 +150,10 @@ func main() {
 				// --------------------------------------------------------------------------- handle /destroy_bank command
 				processing.Destroy(update.Message.Chat.ChatId)
 
-				if keyboardButtons, err := utils.CreateKeyboardButtons(
-					ctx,
-					&db,
-					"banks",
-					bson.M{
-						"account": update.Message.Chat.ChatId,
-					},
-				); err != nil {
+				if bankNames, err := utils.GetBankNames(ctx, &db, update.Message.Chat.ChatId); err != nil {
 					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 				} else {
-					bot.ReplyKeyboard.Create(keyboardButtons)
+					bot.ReplyKeyboard.Create(bankNames)
 
 					if err = bot.SendMessage(
 						update.Message.Chat.ChatId,
@@ -173,23 +166,16 @@ func main() {
 					processing.Create(
 						update.Message.Chat.ChatId,
 						models.Command{Name: enums.DESTROY_BANK},
-						models.Extra{Keyboard: keyboardButtons},
+						models.Extra{Keyboard: bankNames},
 					)
 				}
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == enums.BotCommands[enums.GET_BALANCE] {
 				// ---------------------------------------------------------------------------- handle /get_balance command
-				if keyboardButtons, err := utils.CreateKeyboardButtons(
-					ctx,
-					&db,
-					"banks",
-					bson.M{
-						"account": update.Message.Chat.ChatId,
-					},
-				); err != nil {
+				if bankNames, err := utils.GetBankNames(ctx, &db, update.Message.Chat.ChatId); err != nil {
 					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 				} else {
-					bot.ReplyKeyboard.Create(keyboardButtons)
+					bot.ReplyKeyboard.Create(bankNames)
 
 					if err = bot.SendMessage(
 						update.Message.Chat.ChatId,
@@ -202,23 +188,16 @@ func main() {
 					processing.Create(
 						update.Message.Chat.ChatId,
 						models.Command{Name: enums.GET_BALANCE},
-						models.Extra{Keyboard: keyboardButtons},
+						models.Extra{Keyboard: bankNames},
 					)
 				}
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == enums.BotCommands[enums.INCOME] {
 				// --------------------------------------------------------------------------------- handle /income command
-				if keyboardButtons, err := utils.CreateKeyboardButtons(
-					ctx,
-					&db,
-					"banks",
-					bson.M{
-						"account": update.Message.Chat.ChatId,
-					},
-				); err != nil {
+				if bankNames, err := utils.GetBankNames(ctx, &db, update.Message.Chat.ChatId); err != nil {
 					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 				} else {
-					bot.ReplyKeyboard.Create(keyboardButtons)
+					bot.ReplyKeyboard.Create(bankNames)
 
 					if err = bot.SendMessage(
 						update.Message.Chat.ChatId,
@@ -232,24 +211,17 @@ func main() {
 						update.Message.Chat.ChatId,
 						models.Command{Name: enums.INCOME},
 						models.Extra{
-							Keyboard: keyboardButtons,
+							Keyboard: bankNames,
 						},
 					)
 				}
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == enums.BotCommands[enums.EXPENSE] {
 				// -------------------------------------------------------------------------------- handle /expense command
-				if keyboardButtons, err := utils.CreateKeyboardButtons(
-					ctx,
-					&db,
-					"banks",
-					bson.M{
-						"account": update.Message.Chat.ChatId,
-					},
-				); err != nil {
+				if bankNames, err := utils.GetBankNames(ctx, &db, update.Message.Chat.ChatId); err != nil {
 					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 				} else {
-					bot.ReplyKeyboard.Create(keyboardButtons)
+					bot.ReplyKeyboard.Create(bankNames)
 
 					if err = bot.SendMessage(
 						update.Message.Chat.ChatId,
@@ -263,7 +235,7 @@ func main() {
 						update.Message.Chat.ChatId,
 						models.Command{Name: enums.EXPENSE},
 						models.Extra{
-							Keyboard: keyboardButtons,
+							Keyboard: bankNames,
 						},
 					)
 				}
