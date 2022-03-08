@@ -95,7 +95,7 @@ func main() {
 							update.Message.Chat.ChatId,
 							"Для работы с ботом используй одну из следующих команд:%0A"+
 								"/create_bank - создать копилку%0A"+
-								"/Destroy_bank - удалить копилку%0A"+
+								"/destroy_bank - удалить копилку%0A"+
 								"/income - увеличить баланс копилки%0A"+
 								"/expense - уменьшить баланс копилки%0A"+
 								"/get_balance - узнать баланс копилки",
@@ -147,7 +147,7 @@ func main() {
 				)
 				// --------------------------------------------------------------------------------------------------------
 			} else if update.Message.Text == enums.BotCommands[enums.DESTROY_BANK] {
-				// --------------------------------------------------------------------------- handle /Destroy_bank command
+				// --------------------------------------------------------------------------- handle /destroy_bank command
 				processing.Destroy(update.Message.Chat.ChatId)
 
 				if keyboardButtons, err := utils.CreateKeyboardButtons(
@@ -189,6 +189,8 @@ func main() {
 				); err != nil {
 					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 				} else {
+					bot.ReplyKeyboard.Create(keyboardButtons)
+
 					if err = bot.SendMessage(
 						update.Message.Chat.ChatId,
 						"Баланс какой копилки ты хочешь узнать? Напиши /cancel, если передумал",
@@ -216,6 +218,8 @@ func main() {
 				); err != nil {
 					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 				} else {
+					bot.ReplyKeyboard.Create(keyboardButtons)
+
 					if err = bot.SendMessage(
 						update.Message.Chat.ChatId,
 						"Баланс какой копилки будем изменять? Напиши /cancel, если передумал",
@@ -245,6 +249,8 @@ func main() {
 				); err != nil {
 					bot.SendMessage(update.Message.Chat.ChatId, err.Error())
 				} else {
+					bot.ReplyKeyboard.Create(keyboardButtons)
+
 					if err = bot.SendMessage(
 						update.Message.Chat.ChatId,
 						"Баланс какой копилки будем изменять? Напиши /cancel, если передумал",
@@ -277,7 +283,7 @@ func main() {
 						update.Message.Chat.ChatId,
 						"Для работы с ботом используй одну из следующих команд:%0A"+
 							"/create_bank - создать копилку%0A"+
-							"/Destroy_bank - удалить копилку%0A"+
+							"/destroy_bank - удалить копилку%0A"+
 							"/income - увеличить баланс копилки%0A"+
 							"/expense - уменьшить баланс копилки%0A"+
 							"/get_balance - узнать баланс копилки%0A",
@@ -341,7 +347,7 @@ func main() {
 					// ----------------------------------------------- handle update in /destroy_bank command processing
 					if bank, err := utils.GetBank(ctx, &db, bson.M{
 						"account": update.Message.Chat.ChatId,
-						"bank":    update.Message.Text,
+						"name":    update.Message.Text,
 					}); err != nil {
 						log.Println(err)
 
@@ -387,7 +393,7 @@ func main() {
 					// ------------------------------------------------ handle update in /get_balance command processing
 					if bank, err := utils.GetBank(ctx, &db, bson.M{
 						"account": update.Message.Chat.ChatId,
-						"bank":    update.Message.Text,
+						"name":    update.Message.Text,
 					}); err != nil {
 						log.Println(err)
 
@@ -423,7 +429,7 @@ func main() {
 					// ----------------------------------------------------- handle update in /income command processing
 					if bank, err := utils.GetBank(ctx, &db, bson.M{
 						"account": update.Message.Chat.ChatId,
-						"bank":    update.Message.Text,
+						"name":    update.Message.Text,
 					}); err != nil {
 						log.Println(err)
 
@@ -546,7 +552,7 @@ func main() {
 					// ---------------------------------------------------- handle update in /expense command processing
 					if bank, err := utils.GetBank(ctx, &db, bson.M{
 						"account": update.Message.Chat.ChatId,
-						"bank":    update.Message.Text,
+						"name":    update.Message.Text,
 					}); err != nil {
 						log.Println(err)
 
