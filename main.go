@@ -67,7 +67,7 @@ func main() {
 		}
 
 		for _, update := range bot.GetUpdatesResp.Updates {
-			if update.Message.Text == "/start" {
+			if update.Message.Text == enums.BotCommands[enums.START] {
 				// ---------------------------------------------------------------------------------- handle /start command
 				processing.destroy(update.Message.Chat.ChatId)
 
@@ -107,11 +107,11 @@ func main() {
 							log.Fatal(err)
 						}
 
-						processing.create(update.Message.Chat.ChatId, "/create_bank", Extra{})
+						processing.create(update.Message.Chat.ChatId, enums.BotCommands[enums.CREATE_BANK], Extra{})
 					}
 				}
 				// --------------------------------------------------------------------------------------------------------
-			} else if update.Message.Text == "/cancel" {
+			} else if update.Message.Text == enums.BotCommands[enums.CANCEL] {
 				// --------------------------------------------------------------------------------- handle /cancel command
 				processing.destroy(update.Message.Chat.ChatId)
 
@@ -122,7 +122,7 @@ func main() {
 					log.Fatal(err)
 				}
 				// --------------------------------------------------------------------------------------------------------
-			} else if update.Message.Text == "/create_bank" {
+			} else if update.Message.Text == enums.BotCommands[enums.CREATE_BANK] {
 				// ---------------------------------------------------------------------------- handle /create_bank command
 				processing.destroy(update.Message.Chat.ChatId)
 
@@ -135,8 +135,10 @@ func main() {
 
 				processing.create(update.Message.Chat.ChatId, update.Message.Text, Extra{})
 				// --------------------------------------------------------------------------------------------------------
-			} else if update.Message.Text == "/destroy_bank" || update.Message.Text == "/get_balance" ||
-				update.Message.Text == "/income" || update.Message.Text == "/expense" {
+			} else if update.Message.Text == enums.BotCommands[enums.DESTROY_BANK] ||
+				update.Message.Text == enums.BotCommands[enums.GET_BALANCE] ||
+				update.Message.Text == enums.BotCommands[enums.INCOME] ||
+				update.Message.Text == enums.BotCommands[enums.EXPENSE] {
 				// ------------------------------------ handle /destroy_bank or /get_balance or /income or /expense command
 				processing.destroy(update.Message.Chat.ChatId)
 
@@ -184,12 +186,12 @@ func main() {
 
 						var message string
 
-						if update.Message.Text == "/destroy_bank" {
+						if update.Message.Text == enums.BotCommands[enums.DESTROY_BANK] {
 							message = "Какую копилку ты хочешь удалить?"
-						} else if update.Message.Text == "/get_balance" {
+						} else if update.Message.Text == enums.BotCommands[enums.GET_BALANCE] {
 							message = "Баланс какой копилки ты хочешь узнать?"
-						} else if update.Message.Text == "/income" ||
-							update.Message.Text == "/expense" {
+						} else if update.Message.Text == enums.BotCommands[enums.INCOME] ||
+							update.Message.Text == enums.BotCommands[enums.EXPENSE] {
 							message = "Баланс какой копилки будем изменять?"
 						}
 
@@ -234,7 +236,7 @@ func main() {
 						log.Fatal(err)
 					}
 					// -----------------------------------------------------------------------------------------------------
-				} else if process.Command == "/create_bank" {
+				} else if process.Command == enums.BotCommands[enums.CREATE_BANK] {
 					// ------------------------------------------------ handle update in /create_bank command processing
 					var bank Bank
 
@@ -285,9 +287,9 @@ func main() {
 						processing.destroy(update.Message.Chat.ChatId)
 					}
 					// -------------------------------------------------------------------------------------------------
-				} else if process.Command == "/destroy_bank" || process.Command == "/get_balance" ||
-					process.Command == "/income" || process.Command == "/expense" {
-					// -------- handle update in /destroy_bank or /get_balance or /income or /expense command processing
+				} else if process.Command == enums.BotCommands[enums.DESTROY_BANK] || process.Command == enums.BotCommands[enums.GET_BALANCE] ||
+					process.Command == enums.BotCommands[enums.INCOME] || process.Command == enums.BotCommands[enums.EXPENSE] {
+					// -------- handle update in /destroy_bank or /get_balance or /income or /expensenums.BotCommands[enums.INCOME]
 					var bank Bank
 
 					if err = db.getDocument(
@@ -317,7 +319,7 @@ func main() {
 							processing.destroy(update.Message.Chat.ChatId)
 						}
 					} else {
-						if process.Command == "/destroy_bank" {
+						if process.Command == enums.BotCommands[enums.DESTROY_BANK] {
 							err = bank.destroy()
 							if err != nil {
 								log.Println(err)
@@ -338,7 +340,7 @@ func main() {
 							processing.destroy(update.Message.Chat.ChatId)
 						}
 
-						if process.Command == "/get_balance" {
+						if process.Command == enums.BotCommands[enums.GET_BALANCE] {
 							if err = bot.sendMessage(
 								update.Message.Chat.ChatId,
 								"Баланс копилки "+bank.Name+" составляет "+strconv.Itoa(bank.Balance)+" руб.",
@@ -349,7 +351,7 @@ func main() {
 							processing.destroy(update.Message.Chat.ChatId)
 						}
 
-						if process.Command == "/income" || process.Command == "/expense" {
+						if process.Command == enums.BotCommands[enums.INCOME] || process.Command == enums.BotCommands[enums.EXPENSE] {
 							err = bot.sendMessage(update.Message.Chat.ChatId, "На какую сумму?")
 							if err != nil {
 								log.Fatal(err)
@@ -447,9 +449,9 @@ func main() {
 						} else {
 							var balance int
 
-							if process.Extra.Operation.Operation == "/income" {
+							if process.Extra.Operation.Operation == enums.BotCommands[enums.INCOME] {
 								balance = bank.Balance + process.Extra.Operation.Amount
-							} else if process.Extra.Operation.Operation == "/expense" {
+							} else if process.Extra.Operation.Operation == enums.BotCommands[enums.EXPENSE] {
 								balance = bank.Balance - process.Extra.Operation.Amount
 							}
 
