@@ -10,7 +10,7 @@ import (
 )
 
 func GetBank(ctx context.Context, db *models.DataBase, account int, name string) (*models.Bank, error) {
-	var bank models.Bank
+	var bank *models.Bank
 
 	err := db.GetDocument(ctx, "banks", bson.M{
 		"account": account,
@@ -20,9 +20,9 @@ func GetBank(ctx context.Context, db *models.DataBase, account int, name string)
 		if err.Error() == "mongo: no documents in result" {
 			return nil, errors.New(enums.UserErrors[enums.BANK_NOT_FOUND])
 		} else {
-			return nil, errors.New(enums.UserErrors[enums.UNEXPECTED_ERROR])
+			return nil, err
 		}
 	}
 
-	return &bank, nil
+	return bank, nil
 }
