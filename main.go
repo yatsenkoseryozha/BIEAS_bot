@@ -313,7 +313,7 @@ func main() {
 
 							bot.ReplyKeyboard.Destroy()
 						} else {
-							err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+							err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 							if err != nil {
 								log.Fatal(err)
 							}
