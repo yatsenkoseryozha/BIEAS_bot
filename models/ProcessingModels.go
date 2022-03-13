@@ -42,7 +42,7 @@ type Command struct {
 }
 
 type Extra struct {
-	Bank      Bank
+	Bank      *Bank
 	Operation Operation
 	Keyboard  []string
 }

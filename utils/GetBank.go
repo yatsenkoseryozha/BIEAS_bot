@@ -10,7 +10,7 @@ import (
 )
 
 func GetBank(ctx context.Context, db *models.DataBase, account int, name string) (*models.Bank, error) {
-	var bank models.Bank
+	var bank *models.Bank
 
 	err := db.GetDocument(ctx, "banks", bson.M{
 		"account": account,
@@ -24,5 +24,5 @@ func GetBank(ctx context.Context, db *models.DataBase, account int, name string)
 		}
 	}
 
-	return &bank, nil
+	return bank, nil
 }
