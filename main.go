@@ -503,7 +503,7 @@ func main() {
 
 								bot.ReplyKeyboard.Destroy()
 							} else {
-								err = bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+								err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 								if err != nil {
 									log.Fatal(err)
 								}
@@ -523,6 +523,7 @@ func main() {
 									Step: 1,
 								},
 								models.Extra{
+									Bank: bank,
 									Operation: models.Operation{
 										Account:   update.Message.Chat.ChatId,
 										Bank:      bank.Id,
@@ -551,10 +552,11 @@ func main() {
 							processing.Create(
 								update.Message.Chat.ChatId,
 								models.Command{
-									Name: enums.INCOME,
+									Name: enums.EXPENSE,
 									Step: 2,
 								},
 								models.Extra{
+									Bank: process.Extra.Bank,
 									Operation: models.Operation{
 										Account:   process.Extra.Operation.Account,
 										Bank:      process.Extra.Operation.Bank,
@@ -574,25 +576,23 @@ func main() {
 								log.Fatal(err)
 							}
 						} else {
-							if bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, process.Extra.Bank.Id); err != nil {
+							balance := process.Extra.Bank.Balance - process.Extra.Operation.Amount
+
+							err := process.Extra.Bank.Update(ctx, &db, bson.M{"balance": balance})
+							if err != nil {
 								log.Println(err)
 
 								err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.UNEXPECTED_ERROR])
 								if err != nil {
 									log.Fatal(err)
 								}
-							} else {
-								balance := bank.Balance - process.Extra.Operation.Amount
+							}
 
-								bank.Update(ctx, &db, bson.M{"balance": balance})
-
-								if err = bot.SendMessage(
-									update.Message.Chat.ChatId,
-									"Баланс копилки был успешно изменен! Текущий баланс: "+
-										strconv.Itoa(bank.Balance)+" руб.",
-								); err != nil {
-									log.Fatal(err)
-								}
+							if err = bot.SendMessage(
+								update.Message.Chat.ChatId,
+								"Баланс копилки был успешно изменен! Текущий баланс: "+strconv.Itoa(balance)+" руб.",
+							); err != nil {
+								log.Fatal(err)
 							}
 						}
 
