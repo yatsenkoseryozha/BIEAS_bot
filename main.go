@@ -69,7 +69,7 @@ func main() {
 			log.Println(err)
 		}
 
-		var update Update
+		var update models.Update
 
 		err = json.Unmarshal(body, &update)
 		if err != nil {
