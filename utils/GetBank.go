@@ -20,7 +20,7 @@ func GetBank(ctx context.Context, db *models.DataBase, account int, name string)
 		if err.Error() == "mongo: no documents in result" {
 			return nil, errors.New(enums.UserErrors[enums.BANK_NOT_FOUND])
 		} else {
-			return nil, errors.New(enums.UserErrors[enums.UNEXPECTED_ERROR])
+			return nil, err
 		}
 	}
 

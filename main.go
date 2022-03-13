@@ -256,7 +256,7 @@ func main() {
 					// -----------------------------------------------------------------------------------------------------
 				} else if process.Command.Name == enums.CREATE_BANK {
 					// ---------------------------------------------------- handle update in /create_bank command processing
-					bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, process.Extra.Bank.Id)
+					bank, err := utils.GetBank(ctx, &db, update.Message.Chat.ChatId, update.Message.Text)
 					if err != nil && err.Error() != enums.UserErrors[enums.BANK_NOT_FOUND] {
 						log.Println(err)
 
@@ -266,7 +266,7 @@ func main() {
 						}
 
 						processing.Destroy(update.Message.Chat.ChatId)
-					} else if bank.Name != "" {
+					} else if bank != nil {
 						log.Println(err)
 
 						err = bot.SendMessage(update.Message.Chat.ChatId, enums.UserErrors[enums.BANK_NAME_IS_EXIST])
@@ -274,8 +274,10 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						bank.Account = update.Message.Chat.ChatId
-						bank.Name = update.Message.Text
+						bank = &models.Bank{
+							Account: update.Message.Chat.ChatId,
+							Name:    update.Message.Text,
+						}
 
 						if err = bank.Create(ctx, &db); err != nil {
 							log.Println(err)
