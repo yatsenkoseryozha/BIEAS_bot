@@ -12,7 +12,7 @@ const (
 	UNEXPECTED_ERROR
 )
 
-var developer, _ = os.LookupEnv("DEVELOPER")
+var developer = os.Getenv("DEVELOPER")
 var UserErrors = map[UserError]string{
 	NO_BANKS:           "На твоем аккаунте нет ни одной копилки!",
 	BANK_NAME_IS_EXIST: "Копилка с таким названием уже существует. Попробуй снова",
