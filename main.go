@@ -238,6 +238,28 @@ func main() {
 				)
 			}
 			// --------------------------------------------------------------------------------------------------------
+		} else if update.Message.Text == enums.BotCommands[enums.CREATE_TRANSFER] {
+			if bankNames, err := utils.GetBankNames(ctx, &db, update.Message.Chat.ChatId); err != nil {
+				bot.SendMessage(update.Message.Chat.ChatId, err.Error())
+			} else {
+				bot.ReplyKeyboard.Create(bankNames)
+
+				if err = bot.SendMessage(
+					update.Message.Chat.ChatId,
+					"Из какой копилки будем переводить средства? Напиши /cancel, если передумал",
+				); err != nil {
+					log.Fatal(err)
+				}
+
+				bot.ReplyKeyboard.Destroy()
+				processing.Create(
+					update.Message.Chat.ChatId,
+					models.Command{Name: enums.CREATE_TRANSFER},
+					models.Extra{
+						Keyboard: bankNames,
+					},
+				)
+			}
 		} else {
 			var process models.Process
 
