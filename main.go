@@ -483,7 +483,15 @@ func main() {
 						)
 					}
 				} else if process.Command.Step == 2 {
-					err = process.Extra.Operation.Create(ctx, &db)
+					operation := models.Operation{
+						Account:   process.Extra.Operation.Account,
+						Bank:      process.Extra.Operation.Bank,
+						Operation: process.Extra.Operation.Operation,
+						Amount:    process.Extra.Operation.Amount,
+						Comment:   update.Message.Text,
+					}
+
+					err = operation.Create(ctx, &db)
 					if err != nil {
 						log.Println(err)
 
@@ -492,7 +500,7 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						balance := process.Extra.Bank.Balance + process.Extra.Operation.Amount
+						balance := process.Extra.Bank.Balance + operation.Amount
 
 						err = process.Extra.Bank.Update(ctx, &db, bson.M{"balance": balance})
 						if err != nil {
@@ -596,7 +604,15 @@ func main() {
 						)
 					}
 				} else if process.Command.Step == 2 {
-					err = process.Extra.Operation.Create(ctx, &db)
+					operation := models.Operation{
+						Account:   process.Extra.Operation.Account,
+						Bank:      process.Extra.Operation.Bank,
+						Operation: process.Extra.Operation.Operation,
+						Amount:    process.Extra.Operation.Amount,
+						Comment:   update.Message.Text,
+					}
+
+					err = operation.Create(ctx, &db)
 					if err != nil {
 						log.Println(err)
 
@@ -605,7 +621,7 @@ func main() {
 							log.Fatal(err)
 						}
 					} else {
-						balance := process.Extra.Bank.Balance - process.Extra.Operation.Amount
+						balance := process.Extra.Bank.Balance - operation.Amount
 
 						err := process.Extra.Bank.Update(ctx, &db, bson.M{"balance": balance})
 						if err != nil {
