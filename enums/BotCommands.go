@@ -11,6 +11,7 @@ const (
 	GET_BALANCE
 	INCOME
 	EXPENSE
+	CREATE_TRANSFER
 )
 
 var BotCommands = map[BotCommand]string{
@@ -22,4 +23,5 @@ var BotCommands = map[BotCommand]string{
 	GET_BALANCE:         "/get_balance",
 	INCOME:              "/income",
 	EXPENSE:             "/expense",
+	CREATE_TRANSFER:     "/create_transfer",
 }
