@@ -39,8 +39,9 @@ func init() {
 		log.Fatal(err)
 	}
 	db.Collections = make(map[string]*mongo.Collection)
-	db.Collections["banks"] = client.Database("develop").Collection("banks")
-	db.Collections["operations"] = client.Database("develop").Collection("operations")
+	dbName, _ := os.LookupEnv("DB_NAME")
+	db.Collections["banks"] = client.Database(dbName).Collection("banks")
+	db.Collections["operations"] = client.Database(dbName).Collection("operations")
 
 	// init Bot
 	botUrl := "https://api.telegram.org/bot"
