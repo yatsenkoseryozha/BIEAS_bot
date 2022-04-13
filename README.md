@@ -1,4 +1,4 @@
-# ![](./assets/logo-24.png) BIEAS v1.1   
+# ![](./assets/logo-24.png) BIEAS   
 Базовая система учета доходов и расходов BIEAS реализована в качестве [Telegram-бота](https://t.me/BIEAS_bot).
 
 ## Прицнип использования
