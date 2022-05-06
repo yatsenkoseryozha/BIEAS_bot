@@ -72,7 +72,7 @@ func main() {
 			log.Println(err)
 		}
 
-		handleUpdate(update)
+		handler(update)
 	})
 
 	PORT := os.Getenv("PORT")

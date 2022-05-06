@@ -10,7 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func handleUpdate(update models.Update) {
+func handler(update models.Update) {
 	if update.Message.Text == enums.BotCommands[enums.START] {
 		// ---------------------------------------------------------------------------------- handle /start command
 		processing.Destroy(update.Message.Chat.ChatId)
