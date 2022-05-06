@@ -66,7 +66,7 @@ func main() {
 		}
 
 		for _, update := range bot.GetUpdatesResp.Updates {
-			handleUpdate(update)
+			handler(update)
 
 			log.Println(update.Message.Chat.Username + " say: " + update.Message.Text)
 			offset = update.UpdateId + 1
